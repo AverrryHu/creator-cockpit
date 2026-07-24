@@ -1,4 +1,4 @@
 interface:
-  display_name: "安装 Creator Cockpit"
+  display_name: "自媒体内容经营驾驶舱"
   short_description: "在本机安全安装、启动、更新和修复自媒体内容经营驾驶舱"
-  default_prompt: "Use $creator-cockpit to install and open Creator Cockpit locally."
+  default_prompt: "使用 $creator-cockpit 在本机安装并打开自媒体内容经营驾驶舱。"
