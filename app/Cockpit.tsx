@@ -1340,7 +1340,7 @@ function ScheduleView({
       <div className="schedule-pool-heading"><div><span className="eyebrow">SCHEDULE POOL</span><h2>档期对象</h2></div><button className="stage-colors-button" onClick={configureColors}><span aria-hidden="true">◐</span>阶段配色</button></div>
       <p>先放运营日程，再把内容的大纲、脚本、录制、剪辑和发布拖到具体日期。</p>
       <section className="schedule-operation-pool">
-        <header><div><strong>运营日程</strong><small>每个模板都可无限次拖入日历</small></div><div className="schedule-operation-actions"><span>无限次</span><button onClick={() => setShowTypeManager(true)} aria-label="管理日程类型">管理</button><button onClick={openNewType} aria-label="新建日程类型">＋ 新建</button></div></header>
+        <header><div><strong>运营日程</strong><small>每个模板都可无限次拖入日历</small></div><div className="schedule-operation-actions"><span>无限次</span><button onClick={() => setShowTypeManager(true)} aria-label="管理日程类型">管理</button></div></header>
         <div className="schedule-operation-templates" onWheel={scrollHorizontalRow}>
           {activeScheduleTypes.map((type) => <button
             key={type.id}

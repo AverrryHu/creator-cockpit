@@ -128,6 +128,8 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.match(page, /function ScheduleTypeManagerModal/);
   assert.match(page, /function ScheduleTypeDeleteModal/);
   assert.match(page, /管理日程类型/);
+  assert.doesNotMatch(page, /aria-label="新建日程类型">＋ 新建<\/button>/);
+  assert.match(page, />＋ 新建类型<\/button>/);
   assert.match(page, /只删除模板/);
   assert.match(page, /模板和日程一起删除/);
   assert.match(page, /function LiveSessionModal/);
