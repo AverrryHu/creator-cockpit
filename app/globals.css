@@ -857,6 +857,25 @@ textarea { resize: vertical; }
 .schedule-type-preview strong, .schedule-type-preview small { display: block; }
 .schedule-type-preview strong { color: var(--event-color); font-size: 9px; }
 .schedule-type-preview small { margin-top: 2px; color: var(--muted); font-size: 7px; }
+.schedule-type-manager-list { display: grid; gap: 8px; max-height: 52vh; overflow-y: auto; padding: 18px 22px; }
+.schedule-type-manager-list > article { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto; align-items: center; gap: 9px; padding: 10px; border: 1px solid color-mix(in srgb, var(--event-color) 26%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--event-color) 5%, var(--surface)); }
+.schedule-type-manager-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; background: color-mix(in srgb, var(--event-color) 17%, white); color: var(--event-color); font-size: 12px; }
+.schedule-type-manager-list article strong, .schedule-type-manager-list article small { display: block; }
+.schedule-type-manager-list article strong { color: var(--event-color); font-size: 10px; }
+.schedule-type-manager-list article small { margin-top: 3px; color: var(--muted); font-size: 8px; }
+.schedule-type-manager-list article button { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink-soft); font-size: 8px; }
+.schedule-type-manager-list article button:hover { border-color: var(--event-color); color: var(--event-color); }
+.schedule-type-manager-list article .schedule-type-remove-button { border-color: transparent; background: transparent; color: #9a8178; }
+.schedule-type-manager-list article .schedule-type-remove-button:hover { border-color: #e3c6b9; background: #fff1eb; color: #a23f24; }
+.schedule-type-delete-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px 22px 22px; }
+.schedule-type-delete-options.single { grid-template-columns: 1fr; }
+.schedule-type-delete-options > button { min-height: 112px; padding: 16px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--ink); text-align: left; }
+.schedule-type-delete-options > button:hover { border-color: var(--olive); background: var(--olive-soft); }
+.schedule-type-delete-options > button.destructive { border-color: #e3c6b9; background: #fff9f5; }
+.schedule-type-delete-options > button.destructive:hover { border-color: #b85c43; background: #fff1eb; }
+.schedule-type-delete-options strong, .schedule-type-delete-options small { display: block; }
+.schedule-type-delete-options strong { font-family: "Songti SC", serif; font-size: 13px; }
+.schedule-type-delete-options small { margin-top: 7px; color: var(--muted); font-size: 8px; line-height: 1.55; }
 .delete-live-button { padding: 7px 8px; border: 0; border-radius: 7px; background: transparent; color: #9a8178; font-size: 9px; }
 .delete-live-button:hover, .delete-live-button:focus-visible { background: #fff1eb; color: #a23f24; outline: none; }
 .onboarding-backdrop { background: rgba(35,35,30,.72); }
@@ -921,7 +940,7 @@ textarea { resize: vertical; }
   .weekly-stage-selector { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .week-summary-panel > header, .week-content-heading { align-items: flex-start; flex-direction: column; }.week-summary-kpis { grid-template-columns: 1fr 1fr; }.week-summary-kpis > div { border-top: 1px solid var(--line); }.week-summary-kpis > div:nth-child(-n+2) { border-top: 0; }.week-summary-kpis > div:nth-child(2n) { border-right: 0; }.week-content-grid { grid-template-columns: 1fr; }
   .todo-heading-actions { align-items: flex-end; flex-direction: column; gap: 5px; }.schedule-content-list, .schedule-operation-templates { grid-template-columns: 1fr; }.schedule-toolbar { align-items: flex-start; flex-direction: column; }.schedule-toolbar-actions { width: 100%; justify-content: space-between; }.schedule-calendar-panel { overflow-x: auto; }.schedule-weekdays, .schedule-month-grid { min-width: 760px; }.stage-schedule-field { grid-template-columns: 1fr; }.stage-schedule-field > button { text-align: left; }.live-session-modal { width: 100vw; max-height: 100vh; border-radius: 0; }.live-session-modal > footer { align-items: stretch; flex-direction: column-reverse; }.live-session-modal > footer > div:last-child { justify-content: flex-end; }.live-session-modal > footer .primary-button { flex: 1; }
-  .stage-color-grid { grid-template-columns: 1fr; }.stage-color-modal { max-height: 94vh; }
+  .stage-color-grid { grid-template-columns: 1fr; }.stage-color-modal { max-height: 94vh; }.schedule-type-delete-options { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }

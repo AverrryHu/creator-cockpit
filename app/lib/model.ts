@@ -116,6 +116,7 @@ export interface ScheduleObjectType {
   name: string;
   description: string;
   color: string;
+  archived: boolean;
   createdAt: string;
 }
 
@@ -184,7 +185,7 @@ export type PageTitleKey =
 export type PageTitles = Record<PageTitleKey, string>;
 
 export interface WorkspaceState {
-  schemaVersion: 11;
+  schemaVersion: 12;
   profile: CreatorProfile;
   pageTitles: PageTitles;
   contents: ContentItem[];

@@ -86,7 +86,7 @@ export function validateImport(value: unknown): value is WorkspaceState {
     goal?: unknown;
   };
   return (
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(candidate.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(candidate.schemaVersion ?? 0) &&
     Array.isArray(candidate.contents) &&
     Array.isArray(candidate.followerSnapshots) &&
     Array.isArray(candidate.contentTypes) &&
@@ -115,7 +115,7 @@ type LegacyContentItem = Omit<ContentItem, "stage" | "review"> & {
 };
 
 type LegacyWorkspace = Omit<WorkspaceState, "schemaVersion" | "profile" | "pageTitles" | "contents" | "stageEvents" | "reviewDays" | "liveSessions" | "scheduleObjectTypes" | "scheduleObjects" | "stageColors"> & {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
   profile?: Partial<CreatorProfile>;
   pageTitles?: Partial<PageTitles>;
   contents: LegacyContentItem[];
@@ -229,6 +229,7 @@ function normalizeScheduleObjectTypes(value: unknown): ScheduleObjectType[] {
       color: typeof candidate.color === "string" && /^#[0-9a-f]{6}$/i.test(candidate.color)
         ? candidate.color.toUpperCase()
         : "#6C7A72",
+      archived: candidate.archived === true,
       createdAt,
     }];
   });
@@ -411,7 +412,7 @@ export function migrateWorkspace(value: unknown): WorkspaceState | null {
     return { ...content, review: { ...content.review, completedAt } };
   });
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     profile: normalizeCreatorProfile(legacy.profile),
     pageTitles: normalizePageTitles(legacy.pageTitles, legacy.goal.objective),
     setupComplete: legacy.setupComplete ?? true,
@@ -439,7 +440,7 @@ export function mergeWorkspace(current: WorkspaceState, incoming: WorkspaceState
   };
   return {
     ...current,
-    schemaVersion: 11,
+    schemaVersion: 12,
     contents: mergeById(current.contents, incoming.contents),
     stageEvents: mergeById(current.stageEvents, incoming.stageEvents),
     reviewDays: mergeById(current.reviewDays, incoming.reviewDays),

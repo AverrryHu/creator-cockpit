@@ -11,12 +11,14 @@ import {
 import { DEFAULT_CREATOR_PROFILE, DEFAULT_PAGE_TITLES, DEFAULT_STAGE_COLORS, type ContentItem, type GoalCycle, type LiveSession, type ScheduleObject, type ScheduleObjectType, type StageEvent, type WorkspaceState } from "../app/lib/model.ts";
 import {
   addReviewDay,
+  archiveScheduleObjectType,
   moveLiveSession,
   moveReviewDay,
   removeLiveSession,
   removeReviewDay,
   moveScheduleObject,
   removeScheduleObject,
+  removeScheduleObjectType,
   saveScheduleObject,
   saveScheduleObjectType,
   saveLiveSession,
@@ -83,7 +85,7 @@ function content(partial: Partial<ContentItem> = {}): ContentItem {
 
 function workspace(item = content(), events: StageEvent[] = []): WorkspaceState {
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     profile: { ...DEFAULT_CREATOR_PROFILE },
     pageTitles: { ...DEFAULT_PAGE_TITLES },
     setupComplete: true,
@@ -348,6 +350,7 @@ test("custom schedule templates can create unlimited independent events", () => 
     name: "活动",
     description: "线下活动或展会",
     color: "#4F7A72",
+    archived: false,
     createdAt: "2026-07-18T12:00:00.000Z",
   };
   const withType = saveScheduleObjectType(workspace(), type);
@@ -374,6 +377,13 @@ test("custom schedule templates can create unlimited independent events", () => 
   assert.equal(moved.scheduleObjects.find((item) => item.id === first.id)?.details, first.details);
   const removed = removeScheduleObject(moved, second.id);
   assert.deepEqual(removed.scheduleObjects.map((item) => item.id), [first.id]);
+
+  const archived = archiveScheduleObjectType(saved, type.id);
+  assert.equal(archived.scheduleObjectTypes[0].archived, true);
+  assert.equal(archived.scheduleObjects.length, 2);
+  const deleted = removeScheduleObjectType(saved, type.id);
+  assert.deepEqual(deleted.scheduleObjectTypes, []);
+  assert.deepEqual(deleted.scheduleObjects, []);
 });
 
 test("deleting content clears its schedule and insight references", () => {
@@ -430,7 +440,7 @@ test("legacy workspaces migrate dates into stage events and discard weekly plann
     insightRules: [],
     contentTypes: ["AI 产品实测"],
   });
-  assert.equal(migrated?.schemaVersion, 11);
+  assert.equal(migrated?.schemaVersion, 12);
   assert.equal(migrated?.profile.dashboardTitle, "Avery的自媒体 Dashboard");
   assert.equal(migrated?.pageTitles.goals, goal.objective);
   assert.equal(migrated?.stageColors.recording, DEFAULT_STAGE_COLORS.recording);
@@ -477,7 +487,7 @@ test("archived legacy content is recognized as reviewed", () => {
     ...workspace(item, [{ id: "completed-review", contentId: item.id, stage: "review", plannedDate: "2026-07-13", rank: 0, completedAt: "2026-07-13T12:00:00.000Z" }]),
     schemaVersion: 7,
   });
-  assert.equal(migrated?.schemaVersion, 11);
+  assert.equal(migrated?.schemaVersion, 12);
   assert.equal(migrated?.contents[0].review.completedAt, "2026-07-13T12:00:00.000Z");
   assert.equal(migrated?.stageEvents.some((event) => event.stage === "review"), false);
 });
@@ -521,6 +531,7 @@ test("review days, live sessions, and custom schedules survive versioned backup 
       name: "活动",
       description: "线下安排",
       color: "#4F7A72",
+      archived: false,
       createdAt: "2026-07-18T12:00:00.000Z",
     }],
     scheduleObjects: [{
@@ -535,7 +546,7 @@ test("review days, live sessions, and custom schedules survive versioned backup 
       updatedAt: "2026-07-18T12:00:00.000Z",
     }],
   });
-  assert.equal(restored?.schemaVersion, 11);
+  assert.equal(restored?.schemaVersion, 12);
   assert.equal(restored?.reviewDays[0].plannedDate, "2026-07-24");
   assert.deepEqual(restored?.liveSessions[0], session);
   assert.equal(restored?.scheduleObjectTypes[0].name, "活动");

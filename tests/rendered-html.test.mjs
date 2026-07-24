@@ -125,6 +125,11 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.match(page, /schedule-object-template/);
   assert.match(page, /function ScheduleObjectModal/);
   assert.match(page, /function ScheduleTypeModal/);
+  assert.match(page, /function ScheduleTypeManagerModal/);
+  assert.match(page, /function ScheduleTypeDeleteModal/);
+  assert.match(page, /管理日程类型/);
+  assert.match(page, /只删除模板/);
+  assert.match(page, /模板和日程一起删除/);
   assert.match(page, /function LiveSessionModal/);
   assert.match(page, /直播内容 \/ 流程/);
   assert.match(page, /复盘、直播和自定义日程可重复创建/);
@@ -164,7 +169,7 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.doesNotMatch(page, /<span>下一步<\/span><select value=\{item\.review\.nextAction\}/);
   assert.match(storage, /normalizeReview/);
   assert.match(storage, /normalizePageTitles/);
-  assert.match(storage, /schemaVersion:\s*11/);
+  assert.match(storage, /schemaVersion:\s*12/);
   assert.match(storage, /normalizeReviewDays/);
   assert.match(storage, /normalizeLiveSessions/);
   assert.match(styles, /\.star-rating/);

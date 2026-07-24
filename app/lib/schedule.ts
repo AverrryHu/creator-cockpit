@@ -91,7 +91,7 @@ export function saveScheduleObjectType(
   if (!type.id || !type.name.trim() || !/^#[0-9a-f]{6}$/i.test(type.color)) return state;
   const normalized = { ...type, name: type.name.trim(), description: type.description.trim(), color: type.color.toUpperCase() };
   const duplicate = state.scheduleObjectTypes.some(
-    (item) => item.id !== normalized.id && item.name.toLocaleLowerCase() === normalized.name.toLocaleLowerCase(),
+    (item) => !item.archived && item.id !== normalized.id && item.name.toLocaleLowerCase() === normalized.name.toLocaleLowerCase(),
   );
   if (duplicate || ["复盘", "直播"].includes(normalized.name)) return state;
   const exists = state.scheduleObjectTypes.some((item) => item.id === normalized.id);
@@ -100,6 +100,31 @@ export function saveScheduleObjectType(
     scheduleObjectTypes: exists
       ? state.scheduleObjectTypes.map((item) => item.id === normalized.id ? normalized : item)
       : [...state.scheduleObjectTypes, normalized],
+  };
+}
+
+export function archiveScheduleObjectType(
+  state: WorkspaceState,
+  typeId: string,
+): WorkspaceState {
+  if (!state.scheduleObjectTypes.some((item) => item.id === typeId && !item.archived)) return state;
+  return {
+    ...state,
+    scheduleObjectTypes: state.scheduleObjectTypes.map((item) =>
+      item.id === typeId ? { ...item, archived: true } : item,
+    ),
+  };
+}
+
+export function removeScheduleObjectType(
+  state: WorkspaceState,
+  typeId: string,
+): WorkspaceState {
+  if (!state.scheduleObjectTypes.some((item) => item.id === typeId)) return state;
+  return {
+    ...state,
+    scheduleObjectTypes: state.scheduleObjectTypes.filter((item) => item.id !== typeId),
+    scheduleObjects: state.scheduleObjects.filter((item) => item.typeId !== typeId),
   };
 }
 
