@@ -92,7 +92,12 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.match(page, /恢复默认配色/);
   assert.match(page, /阶段已完成/);
   assert.match(page, /schedule-calendar-event/);
-  assert.match(page, /颜色区分阶段和日程/);
+  assert.match(page, /schedule-operation-event/);
+  assert.match(page, /schedule-operation-event-icon/);
+  assert.match(page, /legend-content-stage/);
+  assert.match(page, /legend-operation-event/);
+  assert.doesNotMatch(page, /schedule-special-event/);
+  assert.match(page, /复盘、直播和自定义日程可重复创建/);
   assert.doesNotMatch(page, /schedule-event-fill/);
   assert.match(page, /<em>\{STAGE_LABELS\[event\.stage\]\}<\/em><strong>\{item\.title\}<\/strong>/);
   assert.match(page, /recordingNotes/);

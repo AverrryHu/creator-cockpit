@@ -242,6 +242,8 @@ textarea { resize: vertical; }
 .calendar-nav button:last-child { border-right: 0; }
 .schedule-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 20px 13px; color: var(--muted); font-size: 8px; }
 .schedule-legend span { display: flex; align-items: center; gap: 5px; }
+.schedule-legend .legend-content-stage { width: 19px; height: 9px; border: 1px solid #9fa58f; border-radius: 3px; background: var(--surface); box-shadow: inset 6px 0 0 #dfe3d5; }
+.schedule-legend .legend-operation-event { width: 19px; height: 9px; border: 1px solid #b9a7b7; border-radius: 4px; background: #eee7ef; box-shadow: inset 3px 0 0 #82637e; }
 .schedule-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-soft); }
 .schedule-weekdays span { padding: 8px; color: var(--muted); font-size: 8px; text-align: center; }
 .schedule-month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
@@ -270,11 +272,15 @@ textarea { resize: vertical; }
 .schedule-event-remove { position: relative; z-index: 1; width: 20px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 11px; }
 .schedule-calendar-event.completed { background: color-mix(in srgb, var(--stage-color) 7%, var(--surface)); cursor: grab; opacity: .68; }
 .schedule-calendar-event.overdue { border-color: #c97458; box-shadow: inset 2px 0 0 var(--clay); }
-.schedule-special-event { background: color-mix(in srgb, var(--stage-color) 6%, var(--surface)); }
-.schedule-special-event .schedule-event-main em { min-width: 36px; }
-.review-day-event { border-style: dashed; }
-.live-session-event { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--stage-color) 72%, transparent); }
-.custom-schedule-event { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--stage-color) 72%, transparent); }
+.schedule-operation-event { min-height: 39px; border-color: color-mix(in srgb, var(--event-color) 34%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--event-color) 10%, var(--surface)); box-shadow: inset 3px 0 0 var(--event-color); }
+.schedule-operation-event:hover { background: color-mix(in srgb, var(--event-color) 14%, var(--surface)); }
+.schedule-operation-event-main { grid-template-columns: 23px minmax(0, 1fr) auto; gap: 6px; padding: 5px 3px 5px 7px; }
+.schedule-operation-event-icon { display: grid; width: 23px; height: 23px; place-items: center; border-radius: 7px; background: color-mix(in srgb, var(--event-color) 19%, white); color: var(--event-color); font-size: 11px; font-weight: 800; }
+.schedule-operation-event-copy { display: grid; min-width: 0; gap: 1px; }
+.schedule-operation-event .schedule-operation-event-copy em { min-width: 0; padding: 0; border-radius: 0; background: transparent; color: var(--event-color); font-size: 7px; letter-spacing: .06em; line-height: 1.1; text-align: left; }
+.schedule-operation-event .schedule-operation-event-copy strong { display: block; font-size: 9px; line-height: 1.25; }
+.schedule-operation-event .schedule-event-main > i { color: var(--event-color); }
+.schedule-operation-event .schedule-event-remove { color: color-mix(in srgb, var(--event-color) 68%, var(--muted)); }
 
 .stage-schedule-field { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; align-items: center; gap: 10px; padding: 13px; border: 1px solid #cbd0ba; border-radius: 10px; background: rgba(226,229,216,.42); }
 .stage-schedule-field > div span, .stage-schedule-field > div small { display: block; }
