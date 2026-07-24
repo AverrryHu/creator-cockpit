@@ -38,6 +38,8 @@ import {
   type LiveSession,
   type PageTitleKey,
   type QualityMetric,
+  type ScheduleObject,
+  type ScheduleObjectType,
   type StageEvent,
   type WorkStage,
   type WorkspaceState,
@@ -48,7 +50,11 @@ import {
   moveReviewDay as moveReviewDayInWorkspace,
   removeLiveSession as removeLiveSessionFromWorkspace,
   removeReviewDay as removeReviewDayFromWorkspace,
+  removeScheduleObject as removeScheduleObjectFromWorkspace,
+  saveScheduleObject as saveScheduleObjectInWorkspace,
+  saveScheduleObjectType as saveScheduleObjectTypeInWorkspace,
   saveLiveSession as saveLiveSessionInWorkspace,
+  moveScheduleObject as moveScheduleObjectInWorkspace,
 } from "./lib/schedule";
 import {
   clearWorkspace,
@@ -311,7 +317,7 @@ function createDemoState(): WorkspaceState {
   ];
 
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     profile: { ...DEFAULT_CREATOR_PROFILE },
     pageTitles: { ...DEFAULT_PAGE_TITLES, goals: goal.objective },
     setupComplete: true,
@@ -345,6 +351,28 @@ function createDemoState(): WorkspaceState {
         updatedAt: new Date().toISOString(),
       },
     ],
+    scheduleObjectTypes: [
+      {
+        id: "schedule-type-event",
+        name: "活动",
+        description: "线下活动、展会或特别安排",
+        color: "#4F7A72",
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    scheduleObjects: [
+      {
+        id: "schedule-object-event-demo",
+        typeId: "schedule-type-event",
+        title: "WAIC 创作者交流活动",
+        plannedDate: shiftDate(date, 4),
+        startTime: "14:00",
+        endTime: "17:00",
+        details: "准备采访问题和现场拍摄清单。",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
     stageColors: { ...DEFAULT_STAGE_COLORS },
     goal,
     goalHistory: [],
@@ -368,6 +396,8 @@ function createBlankState(): WorkspaceState {
     stageEvents: [],
     reviewDays: [],
     liveSessions: [],
+    scheduleObjectTypes: [],
+    scheduleObjects: [],
     followerSnapshots: [],
     insightRules: [],
     pageTitles: { ...demo.pageTitles, goals: DEFAULT_PAGE_TITLES.goals },
@@ -565,17 +595,17 @@ export default function Cockpit() {
 
   function createReviewDay(plannedDate: string) {
     setState((prev) => addReviewDay(prev, plannedDate, new Date().toISOString()));
-    setToast(`复盘日已安排到 ${plannedDate.slice(5)}`);
+    setToast(`复盘已安排到 ${plannedDate.slice(5)}`);
   }
 
   function moveReviewDay(reviewDayId: string, plannedDate: string) {
     setState((prev) => moveReviewDayInWorkspace(prev, reviewDayId, plannedDate));
-    setToast(`复盘日已移动到 ${plannedDate.slice(5)}`);
+    setToast(`复盘已移动到 ${plannedDate.slice(5)}`);
   }
 
   function deleteReviewDay(reviewDayId: string) {
     setState((prev) => removeReviewDayFromWorkspace(prev, reviewDayId));
-    setToast("已取消复盘日");
+    setToast("已取消复盘");
   }
 
   function saveLiveSession(session: LiveSession) {
@@ -591,6 +621,26 @@ export default function Cockpit() {
   function deleteLiveSession(liveSessionId: string) {
     setState((prev) => removeLiveSessionFromWorkspace(prev, liveSessionId));
     setToast("直播日程已删除");
+  }
+
+  function saveScheduleObjectType(type: ScheduleObjectType) {
+    setState((prev) => saveScheduleObjectTypeInWorkspace(prev, type));
+    setToast(`“${type.name.trim()}”已加入日程对象`);
+  }
+
+  function saveScheduleObject(object: ScheduleObject) {
+    setState((prev) => saveScheduleObjectInWorkspace(prev, object));
+    setToast(`${object.title.trim()}已保存`);
+  }
+
+  function moveScheduleObject(objectId: string, plannedDate: string) {
+    setState((prev) => moveScheduleObjectInWorkspace(prev, objectId, plannedDate, new Date().toISOString()));
+    setToast(`自定义日程已移动到 ${plannedDate.slice(5)}`);
+  }
+
+  function deleteScheduleObject(objectId: string) {
+    setState((prev) => removeScheduleObjectFromWorkspace(prev, objectId));
+    setToast("自定义日程已删除");
   }
 
   function setStageStatus(contentId: string, stage: WorkStage, completed: boolean) {
@@ -824,7 +874,7 @@ export default function Cockpit() {
             </section>
           ) : null}
 
-          {view === "schedule" ? <section className="page momentum-page"><div className="page-heading"><span className="eyebrow">PRODUCTION SCHEDULE</span><EditablePageTitle value={state.pageTitles.schedule} fallback={DEFAULT_PAGE_TITLES.schedule} onChange={(value) => updatePageTitle("schedule", value)} /><p>安排内容阶段，也可以放入统一复盘日和独立直播日程。</p></div><ScheduleView state={state} open={openContent} openReview={() => setView("review")} schedule={planStage} moveEvent={moveCalendarEvent} unschedule={clearStagePlan} createReviewDay={createReviewDay} moveReviewDay={moveReviewDay} removeReviewDay={deleteReviewDay} saveLive={saveLiveSession} moveLive={moveLiveSession} removeLive={deleteLiveSession} configureColors={() => setShowStageColors(true)} /></section> : null}
+          {view === "schedule" ? <section className="page momentum-page"><div className="page-heading"><span className="eyebrow">PRODUCTION SCHEDULE</span><EditablePageTitle value={state.pageTitles.schedule} fallback={DEFAULT_PAGE_TITLES.schedule} onChange={(value) => updatePageTitle("schedule", value)} /><p>安排内容阶段，也可以放入复盘、直播和你自定义的日程对象。</p></div><ScheduleView state={state} open={openContent} openReview={() => setView("review")} schedule={planStage} moveEvent={moveCalendarEvent} unschedule={clearStagePlan} createReviewDay={createReviewDay} moveReviewDay={moveReviewDay} removeReviewDay={deleteReviewDay} saveLive={saveLiveSession} moveLive={moveLiveSession} removeLive={deleteLiveSession} saveObjectType={saveScheduleObjectType} saveObject={saveScheduleObject} moveObject={moveScheduleObject} removeObject={deleteScheduleObject} configureColors={() => setShowStageColors(true)} /></section> : null}
           {view === "pipeline" ? <PipelineView state={state} pageTitle={state.pageTitles.pipeline} updateTitle={(value) => updatePageTitle("pipeline", value)} query={pipelineQuery} setQuery={setPipelineQuery} type={pipelineType} setType={setPipelineType} open={openContent} addToday={addToToday} dropStage={onDropStage} create={createContentAndOpen} /> : null}
           {view === "goals" ? <GoalsView state={state} pageTitle={state.pageTitles.goals} updateTitle={(value) => updatePageTitle("goals", value)} health={health} followers={followers} published={publishedQuarter} updateGoal={updateGoal} setState={setState} /> : null}
           {view === "review" ? <ReviewView state={state} pageTitle={state.pageTitles.review} updateTitle={(value) => updatePageTitle("review", value)} open={(id) => openContent(id, "review")} setState={setState} /> : null}
@@ -951,7 +1001,9 @@ type ScheduleDragData =
   | { kind: "review-day-template" }
   | { kind: "review-day"; reviewDayId: string }
   | { kind: "live-template" }
-  | { kind: "live-session"; liveSessionId: string };
+  | { kind: "live-session"; liveSessionId: string }
+  | { kind: "schedule-object-template"; typeId: string }
+  | { kind: "schedule-object"; objectId: string };
 
 function ScheduleView({
   state,
@@ -966,6 +1018,10 @@ function ScheduleView({
   saveLive,
   moveLive,
   removeLive,
+  saveObjectType,
+  saveObject,
+  moveObject,
+  removeObject,
   configureColors,
 }: {
   state: WorkspaceState;
@@ -980,11 +1036,17 @@ function ScheduleView({
   saveLive: (session: LiveSession) => void;
   moveLive: (liveSessionId: string, plannedDate: string) => void;
   removeLive: (liveSessionId: string) => void;
+  saveObjectType: (type: ScheduleObjectType) => void;
+  saveObject: (object: ScheduleObject) => void;
+  moveObject: (objectId: string, plannedDate: string) => void;
+  removeObject: (objectId: string) => void;
   configureColors: () => void;
 }) {
   const [mode, setMode] = useState<"week" | "month">("month");
   const [anchor, setAnchor] = useState(date);
   const [liveDraft, setLiveDraft] = useState<LiveSession | null>(null);
+  const [objectDraft, setObjectDraft] = useState<ScheduleObject | null>(null);
+  const [typeDraft, setTypeDraft] = useState<ScheduleObjectType | null>(null);
   const anchorDate = new Date(`${anchor}T12:00:00`);
   const year = anchorDate.getFullYear();
   const month = anchorDate.getMonth() + 1;
@@ -1029,6 +1091,8 @@ function ScheduleView({
       if (parsed.kind === "review-day-template" || parsed.kind === "live-template") return parsed;
       if (parsed.kind === "review-day" && parsed.reviewDayId) return parsed;
       if (parsed.kind === "live-session" && parsed.liveSessionId) return parsed;
+      if (parsed.kind === "schedule-object-template" && parsed.typeId) return parsed;
+      if (parsed.kind === "schedule-object" && parsed.objectId) return parsed;
       return null;
     } catch {
       return null;
@@ -1062,6 +1126,34 @@ function ScheduleView({
     });
   };
 
+  const openNewObject = (typeId: string, plannedDate: string) => {
+    const type = state.scheduleObjectTypes.find((item) => item.id === typeId);
+    if (!type) return;
+    const timestamp = new Date().toISOString();
+    setObjectDraft({
+      id: crypto.randomUUID(),
+      typeId,
+      title: type.name,
+      plannedDate,
+      startTime: "",
+      endTime: "",
+      details: "",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  };
+
+  const openNewType = () => {
+    const colors = ["#4F7A72", "#7B6D9B", "#A36A45", "#4C6F91", "#8A6B3F", "#55745A"];
+    setTypeDraft({
+      id: crypto.randomUUID(),
+      name: "",
+      description: "",
+      color: colors[state.scheduleObjectTypes.length % colors.length],
+      createdAt: new Date().toISOString(),
+    });
+  };
+
   const handleDayDrop = (data: ScheduleDragData, plannedDate: string) => {
     if (data.kind === "content-stage") {
       if (data.eventId) moveEvent(data.eventId, plannedDate);
@@ -1072,8 +1164,12 @@ function ScheduleView({
       moveReviewDay(data.reviewDayId, plannedDate);
     } else if (data.kind === "live-template") {
       openNewLive(plannedDate);
-    } else {
+    } else if (data.kind === "live-session") {
       moveLive(data.liveSessionId, plannedDate);
+    } else if (data.kind === "schedule-object-template") {
+      openNewObject(data.typeId, plannedDate);
+    } else {
+      moveObject(data.objectId, plannedDate);
     }
   };
 
@@ -1084,6 +1180,12 @@ function ScheduleView({
   const confirmRemoveLive = (session: LiveSession) => {
     if (!window.confirm(`确定删除直播日程「${session.title}」吗？`)) return false;
     removeLive(session.id);
+    return true;
+  };
+
+  const confirmRemoveObject = (object: ScheduleObject) => {
+    if (!window.confirm(`确定删除日程「${object.title}」吗？`)) return false;
+    removeObject(object.id);
     return true;
   };
 
@@ -1122,9 +1224,9 @@ function ScheduleView({
         style={{ "--stage-color": "#82637E" } as React.CSSProperties}
       >
         <button className="schedule-event-main" onClick={openReview} title="打开复盘实验室">
-          <em>复盘日</em><strong>{pendingCount ? `集中处理 ${pendingCount} 条待复盘` : "统一回看内容表现"}</strong>
+          <em>复盘</em><strong>{pendingCount ? `集中处理 ${pendingCount} 条待复盘` : "统一回看内容表现"}</strong>
         </button>
-        <button className="schedule-event-remove" onClick={() => removeReviewDay(reviewDay.id)} aria-label="取消复盘日">×</button>
+        <button className="schedule-event-remove" onClick={() => removeReviewDay(reviewDay.id)} aria-label="取消复盘">×</button>
       </article>;
     });
 
@@ -1144,17 +1246,39 @@ function ScheduleView({
       <button className="schedule-event-remove" onClick={() => confirmRemoveLive(session)} aria-label={`删除直播：${session.title}`}>×</button>
     </article>);
 
+  const renderScheduleObjects = (plannedDate: string) => state.scheduleObjects
+    .filter((item) => item.plannedDate === plannedDate)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+    .map((object) => {
+      const type = state.scheduleObjectTypes.find((item) => item.id === object.typeId);
+      if (!type) return null;
+      return <article
+        key={object.id}
+        draggable
+        onDragStart={(dragEvent) => writeDrag(dragEvent, { kind: "schedule-object", objectId: object.id })}
+        className="schedule-calendar-event schedule-special-event custom-schedule-event"
+        style={{ "--stage-color": type.color } as React.CSSProperties}
+      >
+        <button className="schedule-event-main" onClick={() => setObjectDraft({ ...object })} title={object.details || object.title}>
+          <em>{type.name}</em><strong>{object.title}</strong>{object.startTime ? <i>{object.startTime}</i> : null}
+        </button>
+        <button className="schedule-event-remove" onClick={() => confirmRemoveObject(object)} aria-label={`删除${type.name}：${object.title}`}>×</button>
+      </article>;
+    });
+
   const renderDay = (plannedDate: string, compact: boolean) => {
     const day = Number(plannedDate.slice(-2));
     const weekday = new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(new Date(`${plannedDate}T12:00:00`));
     return <section
       key={plannedDate}
       className={`schedule-day-cell ${plannedDate === date ? "today" : ""} ${compact ? "compact" : ""}`}
+      data-date={plannedDate}
+      aria-label={`${plannedDate} 档期`}
       onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }}
       onDrop={(event) => { event.preventDefault(); const data = readDrag(event); if (data) handleDayDrop(data, plannedDate); }}
     >
       <header><strong>{day}</strong>{!compact ? <span>{weekday}</span> : null}</header>
-      <div className="schedule-day-events">{renderReviewDays(plannedDate)}{renderLiveSessions(plannedDate)}{renderContentEvents(plannedDate)}</div>
+      <div className="schedule-day-events">{renderReviewDays(plannedDate)}{renderLiveSessions(plannedDate)}{renderScheduleObjects(plannedDate)}{renderContentEvents(plannedDate)}</div>
     </section>;
   };
 
@@ -1167,20 +1291,28 @@ function ScheduleView({
       <div className="schedule-pool-heading"><div><span className="eyebrow">SCHEDULE POOL</span><h2>档期对象</h2></div><button className="stage-colors-button" onClick={configureColors}><span aria-hidden="true">◐</span>阶段配色</button></div>
       <p>先放运营日程，再把内容的大纲、脚本、录制、剪辑和发布拖到具体日期。</p>
       <section className="schedule-operation-pool">
-        <header><div><strong>运营日程</strong><small>模板不会消失，可以重复拖入日历</small></div><span>无限次</span></header>
-        <div className="schedule-operation-templates">
+        <header><div><strong>运营日程</strong><small>每个模板都可无限次拖入日历</small></div><div className="schedule-operation-actions"><span>无限次</span><button onClick={openNewType} aria-label="新建日程类型">＋ 新建</button></div></header>
+        <div className="schedule-operation-templates" onWheel={scrollHorizontalRow}>
           <button
             draggable
             className="review-day-template"
             onDragStart={(event) => writeDrag(event, { kind: "review-day-template" })}
-            aria-label="拖动创建复盘日"
-          ><span className="operation-icon">◌</span><span><strong>复盘日</strong><small>集中查看全部待复盘内容</small></span><em>拖入日历</em></button>
+            aria-label="拖动创建复盘"
+          ><span className="operation-icon">◌</span><span><strong>复盘</strong><small>集中查看待复盘内容</small></span></button>
           <button
             draggable
             className="live-day-template"
             onDragStart={(event) => writeDrag(event, { kind: "live-template" })}
-            aria-label="拖动创建直播日程"
-          ><span className="operation-icon">●</span><span><strong>直播日</strong><small>创建时间、主题与直播内容</small></span><em>拖入日历</em></button>
+            aria-label="拖动创建直播"
+          ><span className="operation-icon">●</span><span><strong>直播</strong><small>安排主题与直播内容</small></span></button>
+          {state.scheduleObjectTypes.map((type) => <button
+            key={type.id}
+            draggable
+            className="custom-schedule-template"
+            style={{ "--event-color": type.color } as React.CSSProperties}
+            onDragStart={(event) => writeDrag(event, { kind: "schedule-object-template", typeId: type.id })}
+            aria-label={`拖动创建${type.name}`}
+          ><span className="operation-icon">◆</span><span><strong>{type.name}</strong><small>{type.description || `安排${type.name}`}</small></span></button>)}
         </div>
       </section>
       <div className="schedule-content-section-title"><div><strong>内容阶段</strong><small>复盘不再针对单条内容排期</small></div></div>
@@ -1212,7 +1344,7 @@ function ScheduleView({
 
     <section className="panel schedule-calendar-panel">
       <header className="schedule-toolbar"><div><span className="eyebrow">PRODUCTION CALENDAR</span><h2>{periodLabel}</h2></div><div className="schedule-toolbar-actions"><div className="segmented"><button className={mode === "week" ? "active" : ""} onClick={() => setMode("week")}>周</button><button className={mode === "month" ? "active" : ""} onClick={() => setMode("month")}>月</button></div><div className="calendar-nav"><button onClick={() => movePeriod(-1)} aria-label="上一档期">‹</button><button onClick={() => setAnchor(date)}>今天</button><button onClick={() => movePeriod(1)} aria-label="下一档期">›</button></div></div></header>
-      <div className="schedule-legend"><span><i className="legend-stage" />颜色区分阶段和日程</span><span>复盘日、直播日可重复创建</span><span>已有事件可继续拖动改期</span></div>
+      <div className="schedule-legend"><span><i className="legend-stage" />颜色区分阶段和日程</span><span>复盘、直播和自定义日程可重复创建</span><span>已有事件可继续拖动改期</span></div>
       {mode === "month" ? <><div className="schedule-weekdays">{["一", "二", "三", "四", "五", "六", "日"].map((day) => <span key={day}>{day}</span>)}</div><div className="schedule-month-grid">{visibleDates.map((plannedDate, index) => plannedDate ? renderDay(plannedDate, true) : <div key={`empty-${index}`} className="schedule-day-cell empty compact" />)}</div></> : <div className="schedule-week-scroll" onWheel={scrollHorizontalRow} tabIndex={0} aria-label="周日历，可横向滚动"><div className="schedule-week-grid">{weekDates.map((plannedDate) => renderDay(plannedDate, false))}</div></div>}
     </section>
   </div>{liveDraft ? <LiveSessionModal
@@ -1223,6 +1355,23 @@ function ScheduleView({
     remove={state.liveSessions.some((item) => item.id === liveDraft.id) ? () => {
       if (confirmRemoveLive(liveDraft)) setLiveDraft(null);
     } : undefined}
+  /> : null}{objectDraft ? <ScheduleObjectModal
+    object={objectDraft}
+    type={state.scheduleObjectTypes.find((item) => item.id === objectDraft.typeId)}
+    update={setObjectDraft}
+    close={() => setObjectDraft(null)}
+    save={(object) => { saveObject({ ...object, title: object.title.trim(), details: object.details.trim(), updatedAt: new Date().toISOString() }); setObjectDraft(null); }}
+    remove={state.scheduleObjects.some((item) => item.id === objectDraft.id) ? () => {
+      if (confirmRemoveObject(objectDraft)) setObjectDraft(null);
+    } : undefined}
+  /> : null}{typeDraft ? <ScheduleTypeModal
+    type={typeDraft}
+    update={setTypeDraft}
+    close={() => setTypeDraft(null)}
+    duplicate={["复盘", "直播", ...state.scheduleObjectTypes.map((item) => item.name)].some(
+      (name) => name.toLocaleLowerCase() === typeDraft.name.trim().toLocaleLowerCase(),
+    )}
+    save={(type) => { saveObjectType(type); setTypeDraft(null); }}
   /> : null}</>;
 }
 
@@ -1248,6 +1397,56 @@ function LiveSessionModal({ session, update, close, save, remove }: {
         <label className="field full"><span>直播内容 / 流程</span><textarea className="large" value={session.content} onChange={(event) => patch({ content: event.target.value })} placeholder="记录要讲的主题、演示环节、互动问题和准备事项…" /></label>
       </div>
       <footer><div>{remove ? <button className="delete-live-button" onClick={remove}>删除这场直播</button> : null}</div><div><button className="text-button" onClick={close}>取消</button><button className="primary-button" disabled={!session.title.trim() || !session.plannedDate} onClick={() => save(session)}>保存直播日程</button></div></footer>
+    </section>
+  </div>;
+}
+
+function ScheduleObjectModal({ object, type, update, close, save, remove }: {
+  object: ScheduleObject;
+  type: ScheduleObjectType | undefined;
+  update: (object: ScheduleObject) => void;
+  close: () => void;
+  save: (object: ScheduleObject) => void;
+  remove?: () => void;
+}) {
+  const patch = (value: Partial<ScheduleObject>) => update({ ...object, ...value });
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
+    <section className="live-session-modal schedule-object-modal" role="dialog" aria-modal="true" aria-labelledby="schedule-object-title" style={{ "--event-color": type?.color || "#6C7A72" } as React.CSSProperties}>
+      <header><div><span className="eyebrow">CUSTOM SCHEDULE</span><h2 id="schedule-object-title">{remove ? `编辑${type?.name || "日程"}` : `创建${type?.name || "日程"}`}</h2><p>这是独立于内容管线的日程，保存后仍可在日历中拖动改期。</p></div><button className="close-button" onClick={close} aria-label="关闭自定义日程">×</button></header>
+      <div className="live-session-form">
+        <div className="schedule-object-type-badge"><i />{type?.name || "自定义日程"}</div>
+        <label className="field full"><span>标题</span><input autoFocus value={object.title} onChange={(event) => patch({ title: event.target.value })} placeholder={`例如：${type?.name || "线下活动"}`} /></label>
+        <div className="form-grid">
+          <label className="field"><span>日期</span><input type="date" value={object.plannedDate} onChange={(event) => patch({ plannedDate: event.target.value })} /></label>
+          <div />
+          <label className="field"><span>开始时间（可选）</span><input type="time" value={object.startTime} onChange={(event) => patch({ startTime: event.target.value })} /></label>
+          <label className="field"><span>结束时间（可选）</span><input type="time" value={object.endTime} onChange={(event) => patch({ endTime: event.target.value })} /></label>
+        </div>
+        <label className="field full"><span>备注</span><textarea className="large" value={object.details} onChange={(event) => patch({ details: event.target.value })} placeholder="记录地点、流程、需要准备的材料等…" /></label>
+      </div>
+      <footer><div>{remove ? <button className="delete-live-button" onClick={remove}>删除这个日程</button> : null}</div><div><button className="text-button" onClick={close}>取消</button><button className="primary-button" disabled={!type || !object.title.trim() || !object.plannedDate} onClick={() => save(object)}>保存日程</button></div></footer>
+    </section>
+  </div>;
+}
+
+function ScheduleTypeModal({ type, update, close, save, duplicate }: {
+  type: ScheduleObjectType;
+  update: (type: ScheduleObjectType) => void;
+  close: () => void;
+  save: (type: ScheduleObjectType) => void;
+  duplicate: boolean;
+}) {
+  const patch = (value: Partial<ScheduleObjectType>) => update({ ...type, ...value });
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
+    <section className="live-session-modal schedule-type-modal" role="dialog" aria-modal="true" aria-labelledby="schedule-type-title" style={{ "--event-color": type.color } as React.CSSProperties}>
+      <header><div><span className="eyebrow">REUSABLE SCHEDULE</span><h2 id="schedule-type-title">新建日程类型</h2><p>创建一次，就会留在档期对象中，可以无限次拖入日历。</p></div><button className="close-button" onClick={close} aria-label="关闭新建日程类型">×</button></header>
+      <div className="live-session-form">
+        <label className="field full"><span>类型名称</span><input autoFocus maxLength={10} value={type.name} onChange={(event) => patch({ name: event.target.value })} placeholder="例如：活动" />{duplicate ? <small className="field-error">这个名称已经存在</small> : null}</label>
+        <label className="field full"><span>一句话说明（可选）</span><input maxLength={40} value={type.description} onChange={(event) => patch({ description: event.target.value })} placeholder="例如：线下活动、展会或特别安排" /></label>
+        <label className="schedule-type-color-field"><span>识别颜色</span><div><i style={{ background: type.color }} /><code>{type.color.toUpperCase()}</code><input type="color" value={type.color} onChange={(event) => patch({ color: event.target.value.toUpperCase() })} aria-label="日程类型颜色" /></div></label>
+        <div className="schedule-type-preview"><span className="operation-icon">◆</span><span><strong>{type.name.trim() || "新类型"}</strong><small>{type.description.trim() || "拖入日历后创建具体日程"}</small></span></div>
+      </div>
+      <footer><div /><div><button className="text-button" onClick={close}>取消</button><button className="primary-button" disabled={!type.name.trim() || duplicate} onClick={() => save(type)}>创建类型</button></div></footer>
     </section>
   </div>;
 }

@@ -196,9 +196,15 @@ textarea { resize: vertical; }
 .schedule-operation-pool > header strong, .schedule-operation-pool > header small { display: block; }
 .schedule-operation-pool > header strong { font-family: "Songti SC", serif; font-size: 12px; }
 .schedule-operation-pool > header small { margin-top: 2px; color: var(--muted); font-size: 7px; }
-.schedule-operation-pool > header > span { padding: 3px 6px; border-radius: 999px; background: #ebe4ee; color: #82637e; font-size: 7px; font-weight: 700; white-space: nowrap; }
-.schedule-operation-templates { display: grid; gap: 6px; }
-.schedule-operation-templates > button { display: grid; min-width: 0; min-height: 52px; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid color-mix(in srgb, var(--event-color) 32%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--event-color) 7%, var(--surface)); color: var(--ink); cursor: grab; text-align: left; }
+.schedule-operation-actions { display: flex; align-items: center; gap: 5px; }
+.schedule-operation-actions > span { padding: 3px 6px; border-radius: 999px; background: #ebe4ee; color: #82637e; font-size: 7px; font-weight: 700; white-space: nowrap; }
+.schedule-operation-actions > button { padding: 3px 5px; border: 1px dashed var(--line-dark); border-radius: 6px; background: var(--surface); color: var(--ink-soft); font-size: 7px; white-space: nowrap; }
+.schedule-operation-actions > button:hover { border-color: var(--clay); color: var(--clay); }
+.schedule-operation-templates { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; overscroll-behavior-inline: contain; scrollbar-color: var(--line-dark) transparent; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.schedule-operation-templates::-webkit-scrollbar { height: 4px; }
+.schedule-operation-templates::-webkit-scrollbar-track { background: transparent; }
+.schedule-operation-templates::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--line-dark); }
+.schedule-operation-templates > button { display: grid; min-width: 124px; min-height: 52px; flex: 0 0 124px; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 7px; padding: 7px 8px; border: 1px solid color-mix(in srgb, var(--event-color) 32%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--event-color) 7%, var(--surface)); color: var(--ink); cursor: grab; text-align: left; }
 .schedule-operation-templates > button:active { cursor: grabbing; }
 .schedule-operation-templates > button.review-day-template { --event-color: #82637e; }
 .schedule-operation-templates > button.live-day-template { --event-color: #b45a3c; }
@@ -207,7 +213,6 @@ textarea { resize: vertical; }
 .schedule-operation-templates button strong, .schedule-operation-templates button small { display: block; }
 .schedule-operation-templates button strong { color: var(--event-color); font-size: 9px; }
 .schedule-operation-templates button small { margin-top: 2px; overflow: hidden; color: var(--muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
-.schedule-operation-templates button em { color: var(--event-color); font-size: 7px; font-style: normal; white-space: nowrap; }
 .schedule-content-section-title { display: flex; align-items: center; justify-content: space-between; padding: 0 13px 8px; }
 .schedule-content-section-title strong, .schedule-content-section-title small { display: block; }
 .schedule-content-section-title strong { font-family: "Songti SC", serif; font-size: 12px; }
@@ -271,6 +276,7 @@ textarea { resize: vertical; }
 .schedule-special-event .schedule-event-main em { min-width: 36px; }
 .review-day-event { border-style: dashed; }
 .live-session-event { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--stage-color) 72%, transparent); }
+.custom-schedule-event { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--stage-color) 72%, transparent); }
 
 .stage-schedule-field { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; align-items: center; gap: 10px; padding: 13px; border: 1px solid #cbd0ba; border-radius: 10px; background: rgba(226,229,216,.42); }
 .stage-schedule-field > div span, .stage-schedule-field > div small { display: block; }
@@ -837,6 +843,20 @@ textarea { resize: vertical; }
 .live-session-form { display: grid; gap: 14px; padding: 20px 23px 22px; }
 .live-session-modal > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 22px; border-top: 1px solid var(--line); background: rgba(255,253,248,.76); }
 .live-session-modal > footer > div { display: flex; align-items: center; gap: 9px; }
+.schedule-object-modal > header, .schedule-type-modal > header { box-shadow: inset 4px 0 0 var(--event-color); }
+.schedule-object-type-badge { display: inline-flex; width: fit-content; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 8px; background: color-mix(in srgb, var(--event-color) 10%, var(--surface)); color: var(--event-color); font-size: 9px; font-weight: 750; }
+.schedule-object-type-badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--event-color); }
+.field-error { display: block; margin-top: 5px; color: #ad4f36; font-size: 8px; }
+.schedule-type-color-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); color: var(--muted); font-size: 9px; }
+.schedule-type-color-field > div { display: flex; align-items: center; gap: 9px; }
+.schedule-type-color-field i { width: 16px; height: 16px; border-radius: 5px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--event-color) 16%, transparent); }
+.schedule-type-color-field code { color: var(--ink-soft); font-family: Georgia, serif; font-size: 8px; }
+.schedule-type-color-field input { width: 34px; height: 30px; padding: 2px; border-radius: 7px; cursor: pointer; }
+.schedule-type-preview { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--event-color) 32%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--event-color) 7%, var(--surface)); }
+.schedule-type-preview .operation-icon { display: grid; width: 29px; height: 29px; place-items: center; border-radius: 8px; background: color-mix(in srgb, var(--event-color) 17%, white); color: var(--event-color); }
+.schedule-type-preview strong, .schedule-type-preview small { display: block; }
+.schedule-type-preview strong { color: var(--event-color); font-size: 9px; }
+.schedule-type-preview small { margin-top: 2px; color: var(--muted); font-size: 7px; }
 .delete-live-button { padding: 7px 8px; border: 0; border-radius: 7px; background: transparent; color: #9a8178; font-size: 9px; }
 .delete-live-button:hover, .delete-live-button:focus-visible { background: #fff1eb; color: #a23f24; outline: none; }
 .onboarding-backdrop { background: rgba(35,35,30,.72); }

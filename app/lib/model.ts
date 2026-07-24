@@ -111,6 +111,26 @@ export interface LiveSession {
   updatedAt: string;
 }
 
+export interface ScheduleObjectType {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  createdAt: string;
+}
+
+export interface ScheduleObject {
+  id: string;
+  typeId: string;
+  title: string;
+  plannedDate: string;
+  startTime: string;
+  endTime: string;
+  details: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ContentQuota {
   contentType: string;
   target: number;
@@ -164,13 +184,15 @@ export type PageTitleKey =
 export type PageTitles = Record<PageTitleKey, string>;
 
 export interface WorkspaceState {
-  schemaVersion: 10;
+  schemaVersion: 11;
   profile: CreatorProfile;
   pageTitles: PageTitles;
   contents: ContentItem[];
   stageEvents: StageEvent[];
   reviewDays: ReviewDay[];
   liveSessions: LiveSession[];
+  scheduleObjectTypes: ScheduleObjectType[];
+  scheduleObjects: ScheduleObject[];
   stageColors: Record<ContentStage, string>;
   goal: GoalCycle;
   goalHistory: GoalCycle[];

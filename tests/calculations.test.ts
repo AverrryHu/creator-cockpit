@@ -8,13 +8,17 @@ import {
   qualifiedContents,
   startOfWeekISO,
 } from "../app/lib/calculations.ts";
-import { DEFAULT_CREATOR_PROFILE, DEFAULT_PAGE_TITLES, DEFAULT_STAGE_COLORS, type ContentItem, type GoalCycle, type LiveSession, type StageEvent, type WorkspaceState } from "../app/lib/model.ts";
+import { DEFAULT_CREATOR_PROFILE, DEFAULT_PAGE_TITLES, DEFAULT_STAGE_COLORS, type ContentItem, type GoalCycle, type LiveSession, type ScheduleObject, type ScheduleObjectType, type StageEvent, type WorkspaceState } from "../app/lib/model.ts";
 import {
   addReviewDay,
   moveLiveSession,
   moveReviewDay,
   removeLiveSession,
   removeReviewDay,
+  moveScheduleObject,
+  removeScheduleObject,
+  saveScheduleObject,
+  saveScheduleObjectType,
   saveLiveSession,
 } from "../app/lib/schedule.ts";
 import { migrateWorkspace } from "../app/lib/storage.ts";
@@ -79,7 +83,7 @@ function content(partial: Partial<ContentItem> = {}): ContentItem {
 
 function workspace(item = content(), events: StageEvent[] = []): WorkspaceState {
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     profile: { ...DEFAULT_CREATOR_PROFILE },
     pageTitles: { ...DEFAULT_PAGE_TITLES },
     setupComplete: true,
@@ -88,6 +92,8 @@ function workspace(item = content(), events: StageEvent[] = []): WorkspaceState 
     stageEvents: events,
     reviewDays: [],
     liveSessions: [],
+    scheduleObjectTypes: [],
+    scheduleObjects: [],
     stageColors: { ...DEFAULT_STAGE_COLORS },
     goal,
     goalHistory: [],
@@ -336,6 +342,40 @@ test("live sessions are separate records that keep details when dragged", () => 
   assert.deepEqual(removed.liveSessions, []);
 });
 
+test("custom schedule templates can create unlimited independent events", () => {
+  const type: ScheduleObjectType = {
+    id: "schedule-type-event",
+    name: "活动",
+    description: "线下活动或展会",
+    color: "#4F7A72",
+    createdAt: "2026-07-18T12:00:00.000Z",
+  };
+  const withType = saveScheduleObjectType(workspace(), type);
+  assert.deepEqual(withType.scheduleObjectTypes, [type]);
+  assert.equal(saveScheduleObjectType(withType, { ...type, id: "duplicate-type" }), withType);
+  assert.equal(saveScheduleObjectType(withType, { ...type, id: "builtin-type", name: "复盘" }), withType);
+  const first: ScheduleObject = {
+    id: "schedule-object-1",
+    typeId: type.id,
+    title: "WAIC 探展",
+    plannedDate: "2026-07-20",
+    startTime: "10:00",
+    endTime: "16:00",
+    details: "提前准备采访清单",
+    createdAt: "2026-07-18T12:01:00.000Z",
+    updatedAt: "2026-07-18T12:01:00.000Z",
+  };
+  const second = { ...first, id: "schedule-object-2", title: "创作者交流会", startTime: "19:00" };
+  const saved = saveScheduleObject(saveScheduleObject(withType, first), second);
+  assert.equal(saved.scheduleObjects.length, 2);
+  assert.notEqual(saved.scheduleObjects[0].id, saved.scheduleObjects[1].id);
+  const moved = moveScheduleObject(saved, first.id, "2026-07-22", "2026-07-19T12:00:00.000Z");
+  assert.equal(moved.scheduleObjects.find((item) => item.id === first.id)?.plannedDate, "2026-07-22");
+  assert.equal(moved.scheduleObjects.find((item) => item.id === first.id)?.details, first.details);
+  const removed = removeScheduleObject(moved, second.id);
+  assert.deepEqual(removed.scheduleObjects.map((item) => item.id), [first.id]);
+});
+
 test("deleting content clears its schedule and insight references", () => {
   const state: WorkspaceState = {
     ...workspace(),
@@ -390,7 +430,7 @@ test("legacy workspaces migrate dates into stage events and discard weekly plann
     insightRules: [],
     contentTypes: ["AI 产品实测"],
   });
-  assert.equal(migrated?.schemaVersion, 10);
+  assert.equal(migrated?.schemaVersion, 11);
   assert.equal(migrated?.profile.dashboardTitle, "Avery的自媒体 Dashboard");
   assert.equal(migrated?.pageTitles.goals, goal.objective);
   assert.equal(migrated?.stageColors.recording, DEFAULT_STAGE_COLORS.recording);
@@ -410,6 +450,8 @@ test("legacy workspaces migrate dates into stage events and discard weekly plann
   assert.equal(migrated?.contents[0].review.completedAt, "");
   assert.deepEqual(migrated?.reviewDays, []);
   assert.deepEqual(migrated?.liveSessions, []);
+  assert.deepEqual(migrated?.scheduleObjectTypes, []);
+  assert.deepEqual(migrated?.scheduleObjects, []);
 });
 
 test("pending legacy per-content review dates are removed from the calendar", () => {
@@ -435,7 +477,7 @@ test("archived legacy content is recognized as reviewed", () => {
     ...workspace(item, [{ id: "completed-review", contentId: item.id, stage: "review", plannedDate: "2026-07-13", rank: 0, completedAt: "2026-07-13T12:00:00.000Z" }]),
     schemaVersion: 7,
   });
-  assert.equal(migrated?.schemaVersion, 10);
+  assert.equal(migrated?.schemaVersion, 11);
   assert.equal(migrated?.contents[0].review.completedAt, "2026-07-13T12:00:00.000Z");
   assert.equal(migrated?.stageEvents.some((event) => event.stage === "review"), false);
 });
@@ -458,7 +500,7 @@ test("creator profile survives backup migration", () => {
   });
 });
 
-test("review days and live sessions survive versioned backup migration", () => {
+test("review days, live sessions, and custom schedules survive versioned backup migration", () => {
   const session: LiveSession = {
     id: "live-backup",
     title: "周末直播",
@@ -474,10 +516,30 @@ test("review days and live sessions survive versioned backup migration", () => {
     ...workspace(),
     reviewDays: [{ id: "review-backup", plannedDate: "2026-07-24", note: "", createdAt: "2026-07-18T12:00:00.000Z" }],
     liveSessions: [session],
+    scheduleObjectTypes: [{
+      id: "schedule-type-backup",
+      name: "活动",
+      description: "线下安排",
+      color: "#4F7A72",
+      createdAt: "2026-07-18T12:00:00.000Z",
+    }],
+    scheduleObjects: [{
+      id: "schedule-object-backup",
+      typeId: "schedule-type-backup",
+      title: "行业交流会",
+      plannedDate: "2026-07-26",
+      startTime: "14:00",
+      endTime: "17:00",
+      details: "带名片",
+      createdAt: "2026-07-18T12:00:00.000Z",
+      updatedAt: "2026-07-18T12:00:00.000Z",
+    }],
   });
-  assert.equal(restored?.schemaVersion, 10);
+  assert.equal(restored?.schemaVersion, 11);
   assert.equal(restored?.reviewDays[0].plannedDate, "2026-07-24");
   assert.deepEqual(restored?.liveSessions[0], session);
+  assert.equal(restored?.scheduleObjectTypes[0].name, "活动");
+  assert.equal(restored?.scheduleObjects[0].title, "行业交流会");
 });
 
 test("moving a pipeline card forward records every crossed stage", () => {

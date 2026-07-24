@@ -5,6 +5,8 @@ import type {
   LiveSession,
   PageTitles,
   ReviewDay,
+  ScheduleObject,
+  ScheduleObjectType,
   StageEvent,
   WorkspaceState,
 } from "./model.ts";
@@ -84,7 +86,7 @@ export function validateImport(value: unknown): value is WorkspaceState {
     goal?: unknown;
   };
   return (
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(candidate.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(candidate.schemaVersion ?? 0) &&
     Array.isArray(candidate.contents) &&
     Array.isArray(candidate.followerSnapshots) &&
     Array.isArray(candidate.contentTypes) &&
@@ -112,14 +114,16 @@ type LegacyContentItem = Omit<ContentItem, "stage" | "review"> & {
   reviewDueAt?: string;
 };
 
-type LegacyWorkspace = Omit<WorkspaceState, "schemaVersion" | "profile" | "pageTitles" | "contents" | "stageEvents" | "reviewDays" | "liveSessions" | "stageColors"> & {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+type LegacyWorkspace = Omit<WorkspaceState, "schemaVersion" | "profile" | "pageTitles" | "contents" | "stageEvents" | "reviewDays" | "liveSessions" | "scheduleObjectTypes" | "scheduleObjects" | "stageColors"> & {
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
   profile?: Partial<CreatorProfile>;
   pageTitles?: Partial<PageTitles>;
   contents: LegacyContentItem[];
   stageEvents?: StageEvent[];
   reviewDays?: Partial<ReviewDay>[];
   liveSessions?: Partial<LiveSession>[];
+  scheduleObjectTypes?: Partial<ScheduleObjectType>[];
+  scheduleObjects?: Partial<ScheduleObject>[];
   stageColors?: Partial<Record<ContentStage, string>>;
   weeklyPlans?: unknown[];
   monthlyReviews?: unknown[];
@@ -197,6 +201,63 @@ function normalizeLiveSessions(value: unknown): LiveSession[] {
       endTime: typeof candidate.endTime === "string" ? candidate.endTime : "",
       platform: typeof candidate.platform === "string" ? candidate.platform : "",
       content: typeof candidate.content === "string" ? candidate.content : "",
+      createdAt,
+      updatedAt: typeof candidate.updatedAt === "string" && candidate.updatedAt ? candidate.updatedAt : createdAt,
+    }];
+  });
+}
+
+function normalizeScheduleObjectTypes(value: unknown): ScheduleObjectType[] {
+  if (!Array.isArray(value)) return [];
+  const names = new Set<string>();
+  const ids = new Set<string>();
+  return value.flatMap((item, index) => {
+    if (!item || typeof item !== "object") return [];
+    const candidate = item as Partial<ScheduleObjectType>;
+    const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+    const id = typeof candidate.id === "string" && candidate.id ? candidate.id : `migrated-schedule-type-${index}`;
+    if (!name || ["复盘", "直播"].includes(name) || names.has(name.toLocaleLowerCase()) || ids.has(id)) return [];
+    names.add(name.toLocaleLowerCase());
+    ids.add(id);
+    const createdAt = typeof candidate.createdAt === "string" && candidate.createdAt
+      ? candidate.createdAt
+      : "1970-01-01T00:00:00.000Z";
+    return [{
+      id,
+      name,
+      description: typeof candidate.description === "string" ? candidate.description.trim() : "",
+      color: typeof candidate.color === "string" && /^#[0-9a-f]{6}$/i.test(candidate.color)
+        ? candidate.color.toUpperCase()
+        : "#6C7A72",
+      createdAt,
+    }];
+  });
+}
+
+function normalizeScheduleObjects(value: unknown, types: ScheduleObjectType[]): ScheduleObject[] {
+  if (!Array.isArray(value)) return [];
+  const typeIds = new Set(types.map((item) => item.id));
+  return value.flatMap((item, index) => {
+    if (!item || typeof item !== "object") return [];
+    const candidate = item as Partial<ScheduleObject>;
+    if (
+      typeof candidate.typeId !== "string"
+      || !typeIds.has(candidate.typeId)
+      || typeof candidate.plannedDate !== "string"
+      || !candidate.plannedDate
+    ) return [];
+    const createdAt = typeof candidate.createdAt === "string" && candidate.createdAt
+      ? candidate.createdAt
+      : `${candidate.plannedDate}T12:00:00.000Z`;
+    const type = types.find((item) => item.id === candidate.typeId);
+    return [{
+      id: typeof candidate.id === "string" && candidate.id ? candidate.id : `migrated-schedule-object-${candidate.plannedDate}-${index}`,
+      typeId: candidate.typeId,
+      title: typeof candidate.title === "string" && candidate.title.trim() ? candidate.title.trim() : type?.name || "未命名日程",
+      plannedDate: candidate.plannedDate,
+      startTime: typeof candidate.startTime === "string" ? candidate.startTime : "",
+      endTime: typeof candidate.endTime === "string" ? candidate.endTime : "",
+      details: typeof candidate.details === "string" ? candidate.details.trim() : "",
       createdAt,
       updatedAt: typeof candidate.updatedAt === "string" && candidate.updatedAt ? candidate.updatedAt : createdAt,
     }];
@@ -338,6 +399,7 @@ export function migrateWorkspace(value: unknown): WorkspaceState | null {
   const legacy = value as unknown as LegacyWorkspace;
   const contents = legacy.contents.map(normalizeContent);
   const legacyStageEvents = buildStageEvents(legacy, contents);
+  const scheduleObjectTypes = normalizeScheduleObjectTypes(legacy.scheduleObjectTypes);
   const reviewedContents = contents.map((content) => {
     if (content.review.completedAt || content.publicationStatus !== "published") return content;
     const completedReview = legacyStageEvents.find(
@@ -349,7 +411,7 @@ export function migrateWorkspace(value: unknown): WorkspaceState | null {
     return { ...content, review: { ...content.review, completedAt } };
   });
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     profile: normalizeCreatorProfile(legacy.profile),
     pageTitles: normalizePageTitles(legacy.pageTitles, legacy.goal.objective),
     setupComplete: legacy.setupComplete ?? true,
@@ -358,6 +420,8 @@ export function migrateWorkspace(value: unknown): WorkspaceState | null {
     stageEvents: legacyStageEvents.filter((event) => event.stage !== "review"),
     reviewDays: normalizeReviewDays(legacy.reviewDays),
     liveSessions: normalizeLiveSessions(legacy.liveSessions),
+    scheduleObjectTypes,
+    scheduleObjects: normalizeScheduleObjects(legacy.scheduleObjects, scheduleObjectTypes),
     stageColors: normalizeStageColors(legacy.stageColors),
     goal: legacy.goal,
     goalHistory: legacy.goalHistory ?? [],
@@ -375,11 +439,13 @@ export function mergeWorkspace(current: WorkspaceState, incoming: WorkspaceState
   };
   return {
     ...current,
-    schemaVersion: 10,
+    schemaVersion: 11,
     contents: mergeById(current.contents, incoming.contents),
     stageEvents: mergeById(current.stageEvents, incoming.stageEvents),
     reviewDays: mergeById(current.reviewDays, incoming.reviewDays),
     liveSessions: mergeById(current.liveSessions, incoming.liveSessions),
+    scheduleObjectTypes: mergeById(current.scheduleObjectTypes, incoming.scheduleObjectTypes),
+    scheduleObjects: mergeById(current.scheduleObjects, incoming.scheduleObjects),
     stageColors: normalizeStageColors({ ...current.stageColors, ...incoming.stageColors }),
     goalHistory: mergeById(current.goalHistory ?? [], incoming.goalHistory ?? []),
     followerSnapshots: mergeById(current.followerSnapshots, incoming.followerSnapshots),
