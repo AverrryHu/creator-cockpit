@@ -86,6 +86,7 @@ import {
 } from "./lib/workflow";
 
 type NavView = "momentum" | "schedule" | "pipeline" | "goals" | "review" | "settings";
+type ColorTheme = "light" | "dark";
 type DailyStageEntry = { event: StageEvent; item: ContentItem };
 type ContentDrawerTab = "overview" | "topic" | "script" | "recording" | "editing" | "publish" | "review";
 
@@ -462,6 +463,7 @@ export default function Cockpit() {
   const [view, setView] = useState<NavView>("momentum");
   const [momentumPeriod, setMomentumPeriod] = useState<"today" | "week">("today");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [theme, setTheme] = useState<ColorTheme | null>(null);
   const [showStageColors, setShowStageColors] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<ContentDrawerTab>("overview");
@@ -487,6 +489,22 @@ export default function Cockpit() {
   useEffect(() => {
     document.title = workspaceTitle;
   }, [workspaceTitle]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!theme) return;
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    try {
+      window.localStorage.setItem("creator-cockpit-theme", theme);
+    } catch {}
+  }, [theme]);
 
   useEffect(() => {
     if (!hydrated || showOnboarding) return;
@@ -527,6 +545,10 @@ export default function Cockpit() {
 
   function updatePageTitle(key: PageTitleKey, value: string) {
     setState((prev) => ({ ...prev, pageTitles: { ...prev.pageTitles, [key]: value } }));
+  }
+
+  function toggleTheme() {
+    setTheme((current) => current === "dark" ? "light" : "dark");
   }
 
   function openContent(id: string, tab: ContentDrawerTab = "overview") {
@@ -894,6 +916,11 @@ export default function Cockpit() {
         <div className="sidebar-bottom">
           <button className={view === "settings" ? "nav-item active" : "nav-item"} onClick={() => setView("settings")} aria-label="设置与备份" title={sidebarCollapsed ? "设置与备份" : undefined}><Icon name="settings" /><span>设置与备份</span></button>
           <div className="quarter-mini"><div><span>当前阶段进度</span><strong>{percent(health.timeProgress)}</strong></div><ProgressBar value={health.timeProgress} /><small>{health.weeksRemaining} 周后结束 · 本机自动保存</small></div>
+          <button className="theme-toggle" onClick={toggleTheme} aria-label={`切换为${theme === "dark" ? "浅色" : "深色"}模式`} aria-pressed={theme === "dark"} title={sidebarCollapsed ? (theme === "dark" ? "浅色模式" : "深色模式") : undefined}>
+            <span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? "☀" : "◐"}</span>
+            <span className="theme-toggle-label">{theme === "dark" ? "浅色模式" : "深色模式"}</span>
+            <span className="theme-toggle-switch" aria-hidden="true"><i /></span>
+          </button>
         </div>
       </aside>
 
@@ -901,7 +928,7 @@ export default function Cockpit() {
         <header className="topbar">
           <div className="mobile-brand"><span className="brand-mark">{creatorMark(state.profile)}</span><strong>{workspaceTitle}</strong></div>
           <div className="topbar-date"><span>{new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "long", day: "numeric", weekday: "long" }).format(new Date())}</span><small>目标第 {Math.max(1, Math.ceil(((new Date().getTime() - new Date(`${state.goal.startDate}T12:00:00`).getTime()) / 86_400_000 + 1) / 7))} 周</small></div>
-          <div className="topbar-actions"><button className="ghost-button search-button" onClick={() => { setView("pipeline"); setTimeout(() => document.getElementById("pipeline-search")?.focus(), 0); }}><Icon name="search" />搜索内容</button><button className="primary-button" onClick={createContentAndOpen}><Icon name="plus" />新建内容</button></div>
+          <div className="topbar-actions"><button className="ghost-button mobile-theme-toggle" onClick={toggleTheme} aria-label={`切换为${theme === "dark" ? "浅色" : "深色"}模式`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "◐"}</span></button><button className="ghost-button search-button" onClick={() => { setView("pipeline"); setTimeout(() => document.getElementById("pipeline-search")?.focus(), 0); }}><Icon name="search" />搜索内容</button><button className="primary-button" onClick={createContentAndOpen}><Icon name="plus" />新建内容</button></div>
         </header>
 
         <div className="page-scroll">

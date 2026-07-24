@@ -33,8 +33,9 @@ test("renders the creator cockpit shell", async () => {
 });
 
 test("keeps device-local storage and AI fallback contracts in source", async () => {
-  const [page, storage, model, schedule, api, styles] = await Promise.all([
+  const [page, layout, storage, model, schedule, api, styles] = await Promise.all([
     import("node:fs/promises").then(({ readFile }) => readFile(new URL("../app/Cockpit.tsx", import.meta.url), "utf8")),
+    import("node:fs/promises").then(({ readFile }) => readFile(new URL("../app/layout.tsx", import.meta.url), "utf8")),
     import("node:fs/promises").then(({ readFile }) => readFile(new URL("../app/lib/storage.ts", import.meta.url), "utf8")),
     import("node:fs/promises").then(({ readFile }) => readFile(new URL("../app/lib/model.ts", import.meta.url), "utf8")),
     import("node:fs/promises").then(({ readFile }) => readFile(new URL("../app/lib/schedule.ts", import.meta.url), "utf8")),
@@ -70,6 +71,13 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.match(styles, /\.goal-config-modal/);
   assert.match(styles, /\.mobile-nav\s*\{[^}]*grid-template-columns:\s*repeat\(5,\s*1fr\)/);
   assert.match(page, /sidebarCollapsed/);
+  assert.match(page, /className="theme-toggle"/);
+  assert.match(page, /深色模式/);
+  assert.match(page, /creator-cockpit-theme/);
+  assert.match(layout, /prefers-color-scheme: dark/);
+  assert.match(layout, /document\.documentElement\.dataset\.theme/);
+  assert.match(styles, /html\[data-theme="dark"\]/);
+  assert.match(styles, /\.mobile-theme-toggle/);
   assert.match(page, /创作者档案/);
   assert.match(page, /看板标题预览/);
   assert.match(page, /先把它变成你的工作台/);
