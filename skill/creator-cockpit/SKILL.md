@@ -1,5 +1,5 @@
 ---
-name: install-creator-cockpit
+name: creator-cockpit
 description: Install, launch, update, or repair Creator Cockpit, a local-first self-media content dashboard distributed from GitHub. Use when a user asks to install or open this dashboard, set up a local creator cockpit, update an existing installation, restore a backup, or troubleshoot its local Node and pnpm environment.
 ---
 

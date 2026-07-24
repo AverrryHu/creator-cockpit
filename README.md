@@ -19,7 +19,7 @@
 
 项目自带安装型 Skill：
 
-[查看 install-creator-cockpit Skill](./skill/install-creator-cockpit/SKILL.md)
+[查看 creator-cockpit Skill](./skill/creator-cockpit/SKILL.md)
 
 把 Skill 全文交给具备本地文件和终端操作能力的 Agent，然后告诉它：
 
