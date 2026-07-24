@@ -111,14 +111,38 @@ export interface LiveSession {
   updatedAt: string;
 }
 
+export type ScheduleObjectKind = "review" | "live" | "custom";
+
 export interface ScheduleObjectType {
   id: string;
+  kind: ScheduleObjectKind;
   name: string;
   description: string;
   color: string;
   archived: boolean;
   createdAt: string;
 }
+
+export const DEFAULT_SCHEDULE_OBJECT_TYPES: ScheduleObjectType[] = [
+  {
+    id: "schedule-type-review",
+    kind: "review",
+    name: "复盘",
+    description: "集中查看全部待复盘内容",
+    color: "#82637E",
+    archived: false,
+    createdAt: "1970-01-01T00:00:00.000Z",
+  },
+  {
+    id: "schedule-type-live",
+    kind: "live",
+    name: "直播",
+    description: "安排主题与直播内容",
+    color: "#B45A3C",
+    archived: false,
+    createdAt: "1970-01-01T00:00:00.000Z",
+  },
+];
 
 export interface ScheduleObject {
   id: string;
@@ -185,7 +209,7 @@ export type PageTitleKey =
 export type PageTitles = Record<PageTitleKey, string>;
 
 export interface WorkspaceState {
-  schemaVersion: 12;
+  schemaVersion: 13;
   profile: CreatorProfile;
   pageTitles: PageTitles;
   contents: ContentItem[];

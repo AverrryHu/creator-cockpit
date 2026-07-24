@@ -206,8 +206,6 @@ textarea { resize: vertical; }
 .schedule-operation-templates::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--line-dark); }
 .schedule-operation-templates > button { display: grid; min-width: 124px; min-height: 52px; flex: 0 0 124px; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 7px; padding: 7px 8px; border: 1px solid color-mix(in srgb, var(--event-color) 32%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--event-color) 7%, var(--surface)); color: var(--ink); cursor: grab; text-align: left; }
 .schedule-operation-templates > button:active { cursor: grabbing; }
-.schedule-operation-templates > button.review-day-template { --event-color: #82637e; }
-.schedule-operation-templates > button.live-day-template { --event-color: #b45a3c; }
 .schedule-operation-templates .operation-icon { display: grid; width: 29px; height: 29px; place-items: center; border-radius: 8px; background: color-mix(in srgb, var(--event-color) 17%, white); color: var(--event-color); font-size: 13px; }
 .schedule-operation-templates button > span:nth-child(2) { min-width: 0; }
 .schedule-operation-templates button strong, .schedule-operation-templates button small { display: block; }

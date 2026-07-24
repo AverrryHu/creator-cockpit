@@ -93,7 +93,7 @@ export function saveScheduleObjectType(
   const duplicate = state.scheduleObjectTypes.some(
     (item) => !item.archived && item.id !== normalized.id && item.name.toLocaleLowerCase() === normalized.name.toLocaleLowerCase(),
   );
-  if (duplicate || ["复盘", "直播"].includes(normalized.name)) return state;
+  if (duplicate) return state;
   const exists = state.scheduleObjectTypes.some((item) => item.id === normalized.id);
   return {
     ...state,
@@ -120,7 +120,26 @@ export function removeScheduleObjectType(
   state: WorkspaceState,
   typeId: string,
 ): WorkspaceState {
-  if (!state.scheduleObjectTypes.some((item) => item.id === typeId)) return state;
+  const type = state.scheduleObjectTypes.find((item) => item.id === typeId);
+  if (!type) return state;
+  if (type.kind === "review") {
+    return {
+      ...state,
+      reviewDays: [],
+      scheduleObjectTypes: state.scheduleObjectTypes.map((item) =>
+        item.id === typeId ? { ...item, archived: true } : item,
+      ),
+    };
+  }
+  if (type.kind === "live") {
+    return {
+      ...state,
+      liveSessions: [],
+      scheduleObjectTypes: state.scheduleObjectTypes.map((item) =>
+        item.id === typeId ? { ...item, archived: true } : item,
+      ),
+    };
+  }
   return {
     ...state,
     scheduleObjectTypes: state.scheduleObjectTypes.filter((item) => item.id !== typeId),
@@ -133,7 +152,7 @@ export function saveScheduleObject(
   object: ScheduleObject,
 ): WorkspaceState {
   if (!object.id || !object.typeId || !object.title.trim() || !object.plannedDate) return state;
-  if (!state.scheduleObjectTypes.some((item) => item.id === object.typeId)) return state;
+  if (!state.scheduleObjectTypes.some((item) => item.id === object.typeId && item.kind === "custom")) return state;
   const normalized = { ...object, title: object.title.trim(), details: object.details.trim() };
   const exists = state.scheduleObjects.some((item) => item.id === normalized.id);
   return {

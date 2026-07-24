@@ -14,6 +14,7 @@ import {
   CONTENT_STAGES,
   DEFAULT_CREATOR_PROFILE,
   DEFAULT_PAGE_TITLES,
+  DEFAULT_SCHEDULE_OBJECT_TYPES,
   DEFAULT_STAGE_COLORS,
 } from "./model.ts";
 
@@ -86,7 +87,7 @@ export function validateImport(value: unknown): value is WorkspaceState {
     goal?: unknown;
   };
   return (
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(candidate.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(candidate.schemaVersion ?? 0) &&
     Array.isArray(candidate.contents) &&
     Array.isArray(candidate.followerSnapshots) &&
     Array.isArray(candidate.contentTypes) &&
@@ -115,7 +116,7 @@ type LegacyContentItem = Omit<ContentItem, "stage" | "review"> & {
 };
 
 type LegacyWorkspace = Omit<WorkspaceState, "schemaVersion" | "profile" | "pageTitles" | "contents" | "stageEvents" | "reviewDays" | "liveSessions" | "scheduleObjectTypes" | "scheduleObjects" | "stageColors"> & {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
   profile?: Partial<CreatorProfile>;
   pageTitles?: Partial<PageTitles>;
   contents: LegacyContentItem[];
@@ -208,22 +209,32 @@ function normalizeLiveSessions(value: unknown): LiveSession[] {
 }
 
 function normalizeScheduleObjectTypes(value: unknown): ScheduleObjectType[] {
-  if (!Array.isArray(value)) return [];
   const names = new Set<string>();
   const ids = new Set<string>();
-  return value.flatMap((item, index) => {
+  const systemKinds = new Set<string>();
+  const normalized = (Array.isArray(value) ? value : []).flatMap((item, index) => {
     if (!item || typeof item !== "object") return [];
     const candidate = item as Partial<ScheduleObjectType>;
     const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
     const id = typeof candidate.id === "string" && candidate.id ? candidate.id : `migrated-schedule-type-${index}`;
-    if (!name || ["复盘", "直播"].includes(name) || names.has(name.toLocaleLowerCase()) || ids.has(id)) return [];
+    const kind = candidate.kind === "review" || candidate.kind === "live" || candidate.kind === "custom"
+      ? candidate.kind
+      : "custom";
+    if (
+      !name
+      || names.has(name.toLocaleLowerCase())
+      || ids.has(id)
+      || (kind !== "custom" && systemKinds.has(kind))
+    ) return [];
     names.add(name.toLocaleLowerCase());
     ids.add(id);
+    if (kind !== "custom") systemKinds.add(kind);
     const createdAt = typeof candidate.createdAt === "string" && candidate.createdAt
       ? candidate.createdAt
       : "1970-01-01T00:00:00.000Z";
     return [{
       id,
+      kind,
       name,
       description: typeof candidate.description === "string" ? candidate.description.trim() : "",
       color: typeof candidate.color === "string" && /^#[0-9a-f]{6}$/i.test(candidate.color)
@@ -233,6 +244,10 @@ function normalizeScheduleObjectTypes(value: unknown): ScheduleObjectType[] {
       createdAt,
     }];
   });
+  const missingDefaults = DEFAULT_SCHEDULE_OBJECT_TYPES
+    .filter((defaultType) => !normalized.some((item) => item.kind === defaultType.kind))
+    .map((item) => ({ ...item }));
+  return [...missingDefaults, ...normalized];
 }
 
 function normalizeScheduleObjects(value: unknown, types: ScheduleObjectType[]): ScheduleObject[] {
@@ -412,7 +427,7 @@ export function migrateWorkspace(value: unknown): WorkspaceState | null {
     return { ...content, review: { ...content.review, completedAt } };
   });
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     profile: normalizeCreatorProfile(legacy.profile),
     pageTitles: normalizePageTitles(legacy.pageTitles, legacy.goal.objective),
     setupComplete: legacy.setupComplete ?? true,
@@ -440,7 +455,7 @@ export function mergeWorkspace(current: WorkspaceState, incoming: WorkspaceState
   };
   return {
     ...current,
-    schemaVersion: 12,
+    schemaVersion: 13,
     contents: mergeById(current.contents, incoming.contents),
     stageEvents: mergeById(current.stageEvents, incoming.stageEvents),
     reviewDays: mergeById(current.reviewDays, incoming.reviewDays),

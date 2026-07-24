@@ -8,7 +8,7 @@ import {
   qualifiedContents,
   startOfWeekISO,
 } from "../app/lib/calculations.ts";
-import { DEFAULT_CREATOR_PROFILE, DEFAULT_PAGE_TITLES, DEFAULT_STAGE_COLORS, type ContentItem, type GoalCycle, type LiveSession, type ScheduleObject, type ScheduleObjectType, type StageEvent, type WorkspaceState } from "../app/lib/model.ts";
+import { DEFAULT_CREATOR_PROFILE, DEFAULT_PAGE_TITLES, DEFAULT_SCHEDULE_OBJECT_TYPES, DEFAULT_STAGE_COLORS, type ContentItem, type GoalCycle, type LiveSession, type ScheduleObject, type ScheduleObjectType, type StageEvent, type WorkspaceState } from "../app/lib/model.ts";
 import {
   addReviewDay,
   archiveScheduleObjectType,
@@ -85,7 +85,7 @@ function content(partial: Partial<ContentItem> = {}): ContentItem {
 
 function workspace(item = content(), events: StageEvent[] = []): WorkspaceState {
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     profile: { ...DEFAULT_CREATOR_PROFILE },
     pageTitles: { ...DEFAULT_PAGE_TITLES },
     setupComplete: true,
@@ -94,7 +94,7 @@ function workspace(item = content(), events: StageEvent[] = []): WorkspaceState 
     stageEvents: events,
     reviewDays: [],
     liveSessions: [],
-    scheduleObjectTypes: [],
+    scheduleObjectTypes: DEFAULT_SCHEDULE_OBJECT_TYPES.map((type) => ({ ...type })),
     scheduleObjects: [],
     stageColors: { ...DEFAULT_STAGE_COLORS },
     goal,
@@ -347,6 +347,7 @@ test("live sessions are separate records that keep details when dragged", () => 
 test("custom schedule templates can create unlimited independent events", () => {
   const type: ScheduleObjectType = {
     id: "schedule-type-event",
+    kind: "custom",
     name: "活动",
     description: "线下活动或展会",
     color: "#4F7A72",
@@ -354,7 +355,7 @@ test("custom schedule templates can create unlimited independent events", () => 
     createdAt: "2026-07-18T12:00:00.000Z",
   };
   const withType = saveScheduleObjectType(workspace(), type);
-  assert.deepEqual(withType.scheduleObjectTypes, [type]);
+  assert.deepEqual(withType.scheduleObjectTypes, [...DEFAULT_SCHEDULE_OBJECT_TYPES, type]);
   assert.equal(saveScheduleObjectType(withType, { ...type, id: "duplicate-type" }), withType);
   assert.equal(saveScheduleObjectType(withType, { ...type, id: "builtin-type", name: "复盘" }), withType);
   const first: ScheduleObject = {
@@ -379,11 +380,26 @@ test("custom schedule templates can create unlimited independent events", () => 
   assert.deepEqual(removed.scheduleObjects.map((item) => item.id), [first.id]);
 
   const archived = archiveScheduleObjectType(saved, type.id);
-  assert.equal(archived.scheduleObjectTypes[0].archived, true);
+  assert.equal(archived.scheduleObjectTypes.find((item) => item.id === type.id)?.archived, true);
   assert.equal(archived.scheduleObjects.length, 2);
   const deleted = removeScheduleObjectType(saved, type.id);
-  assert.deepEqual(deleted.scheduleObjectTypes, []);
+  assert.deepEqual(deleted.scheduleObjectTypes, DEFAULT_SCHEDULE_OBJECT_TYPES);
   assert.deepEqual(deleted.scheduleObjects, []);
+});
+
+test("review and live use the same editable and removable type model", () => {
+  const reviewType = workspace().scheduleObjectTypes.find((item) => item.kind === "review")!;
+  const renamed = saveScheduleObjectType(workspace(), { ...reviewType, name: "集中复盘", color: "#725A70" });
+  assert.equal(renamed.scheduleObjectTypes.find((item) => item.kind === "review")?.name, "集中复盘");
+  assert.equal(renamed.scheduleObjectTypes.find((item) => item.kind === "review")?.color, "#725A70");
+
+  const withReviewDay = addReviewDay(renamed, "2026-07-20", "2026-07-18T12:00:00.000Z");
+  const hidden = archiveScheduleObjectType(withReviewDay, reviewType.id);
+  assert.equal(hidden.scheduleObjectTypes.find((item) => item.kind === "review")?.archived, true);
+  assert.equal(hidden.reviewDays.length, 1);
+  const deleted = removeScheduleObjectType(withReviewDay, reviewType.id);
+  assert.equal(deleted.scheduleObjectTypes.find((item) => item.kind === "review")?.archived, true);
+  assert.deepEqual(deleted.reviewDays, []);
 });
 
 test("deleting content clears its schedule and insight references", () => {
@@ -440,7 +456,7 @@ test("legacy workspaces migrate dates into stage events and discard weekly plann
     insightRules: [],
     contentTypes: ["AI 产品实测"],
   });
-  assert.equal(migrated?.schemaVersion, 12);
+  assert.equal(migrated?.schemaVersion, 13);
   assert.equal(migrated?.profile.dashboardTitle, "Avery的自媒体 Dashboard");
   assert.equal(migrated?.pageTitles.goals, goal.objective);
   assert.equal(migrated?.stageColors.recording, DEFAULT_STAGE_COLORS.recording);
@@ -460,7 +476,7 @@ test("legacy workspaces migrate dates into stage events and discard weekly plann
   assert.equal(migrated?.contents[0].review.completedAt, "");
   assert.deepEqual(migrated?.reviewDays, []);
   assert.deepEqual(migrated?.liveSessions, []);
-  assert.deepEqual(migrated?.scheduleObjectTypes, []);
+  assert.deepEqual(migrated?.scheduleObjectTypes, DEFAULT_SCHEDULE_OBJECT_TYPES);
   assert.deepEqual(migrated?.scheduleObjects, []);
 });
 
@@ -487,7 +503,7 @@ test("archived legacy content is recognized as reviewed", () => {
     ...workspace(item, [{ id: "completed-review", contentId: item.id, stage: "review", plannedDate: "2026-07-13", rank: 0, completedAt: "2026-07-13T12:00:00.000Z" }]),
     schemaVersion: 7,
   });
-  assert.equal(migrated?.schemaVersion, 12);
+  assert.equal(migrated?.schemaVersion, 13);
   assert.equal(migrated?.contents[0].review.completedAt, "2026-07-13T12:00:00.000Z");
   assert.equal(migrated?.stageEvents.some((event) => event.stage === "review"), false);
 });
@@ -528,6 +544,7 @@ test("review days, live sessions, and custom schedules survive versioned backup 
     liveSessions: [session],
     scheduleObjectTypes: [{
       id: "schedule-type-backup",
+      kind: "custom",
       name: "活动",
       description: "线下安排",
       color: "#4F7A72",
@@ -546,10 +563,10 @@ test("review days, live sessions, and custom schedules survive versioned backup 
       updatedAt: "2026-07-18T12:00:00.000Z",
     }],
   });
-  assert.equal(restored?.schemaVersion, 12);
+  assert.equal(restored?.schemaVersion, 13);
   assert.equal(restored?.reviewDays[0].plannedDate, "2026-07-24");
   assert.deepEqual(restored?.liveSessions[0], session);
-  assert.equal(restored?.scheduleObjectTypes[0].name, "活动");
+  assert.equal(restored?.scheduleObjectTypes.find((item) => item.id === "schedule-type-backup")?.name, "活动");
   assert.equal(restored?.scheduleObjects[0].title, "行业交流会");
 });
 

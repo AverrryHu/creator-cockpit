@@ -119,10 +119,10 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.match(styles, /\.schedule-operation-templates\s*\{[^}]*display:\s*flex[^}]*flex-wrap:\s*nowrap[^}]*overflow-x:\s*auto/);
   assert.match(styles, /\.schedule-week-scroll\s*\{[^}]*overflow-x:\s*auto/);
   assert.match(page, /每个模板都可无限次拖入日历/);
-  assert.match(page, /拖动创建复盘/);
-  assert.match(page, /拖动创建直播/);
+  assert.match(page, /schedule-type-template/);
+  assert.match(page, /type\.kind === "review"/);
+  assert.match(page, /type\.kind === "live"/);
   assert.match(page, /新建日程类型/);
-  assert.match(page, /schedule-object-template/);
   assert.match(page, /function ScheduleObjectModal/);
   assert.match(page, /function ScheduleTypeModal/);
   assert.match(page, /function ScheduleTypeManagerModal/);
@@ -131,7 +131,7 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.match(page, /只删除模板/);
   assert.match(page, /模板和日程一起删除/);
   assert.match(page, /function LiveSessionModal/);
-  assert.match(page, /直播内容 \/ 流程/);
+  assert.match(page, /\{type\.name\}内容 \/ 流程/);
   assert.match(page, /复盘、直播和自定义日程可重复创建/);
   assert.match(page, /state\.reviewDays/);
   assert.match(page, /state\.liveSessions/);
@@ -169,7 +169,8 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.doesNotMatch(page, /<span>下一步<\/span><select value=\{item\.review\.nextAction\}/);
   assert.match(storage, /normalizeReview/);
   assert.match(storage, /normalizePageTitles/);
-  assert.match(storage, /schemaVersion:\s*12/);
+  assert.match(storage, /schemaVersion:\s*13/);
+  assert.match(model, /DEFAULT_SCHEDULE_OBJECT_TYPES/);
   assert.match(storage, /normalizeReviewDays/);
   assert.match(storage, /normalizeLiveSessions/);
   assert.match(styles, /\.star-rating/);
