@@ -29,6 +29,7 @@ import {
   canScheduleStage,
   completedPublishingEvents,
   moveStageEventToDate,
+  overdueStageEvents,
   removeStageEvent,
   scheduleStageForDate,
   setContentStageCompletion,
@@ -150,6 +151,18 @@ test("completed Todo events sink while undo restores original ordering", () => {
   ];
   assert.deepEqual(sortStageEvents(events).map((item) => item.id), ["first", "third", "second"]);
   assert.deepEqual(sortStageEvents(events.map((event) => event.id === "second" ? { ...event, completedAt: "" } : event)).map((item) => item.id), ["first", "second", "third"]);
+});
+
+test("today view keeps only unfinished overdue Todo events above today's list", () => {
+  const events: StageEvent[] = [
+    { id: "older", contentId: "first", stage: "script", plannedDate: "2026-07-20", rank: 2, completedAt: "" },
+    { id: "earlier-rank", contentId: "second", stage: "recording", plannedDate: "2026-07-20", rank: 1, completedAt: "" },
+    { id: "completed", contentId: "third", stage: "editing", plannedDate: "2026-07-19", rank: 1, completedAt: "2026-07-19T09:00:00.000Z" },
+    { id: "today", contentId: "fourth", stage: "publishing", plannedDate: "2026-07-25", rank: 1, completedAt: "" },
+    { id: "future", contentId: "fifth", stage: "topic", plannedDate: "2026-07-26", rank: 1, completedAt: "" },
+    { id: "review", contentId: "sixth", stage: "review", plannedDate: "2026-07-18", rank: 1, completedAt: "" },
+  ];
+  assert.deepEqual(overdueStageEvents(events, "2026-07-25").map((event) => event.id), ["earlier-rank", "older"]);
 });
 
 test("completing a Todo stage advances global stage and can be undone", () => {

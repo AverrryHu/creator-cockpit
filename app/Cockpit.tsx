@@ -74,6 +74,7 @@ import {
   moveStageEventToDate,
   moveStageEvent,
   nextContentStage,
+  overdueStageEvents,
   removeStageEvent,
   scheduleContentForDate,
   scheduleStageForDate,
@@ -528,6 +529,12 @@ export default function Cockpit() {
       return item ? { event, item } : null;
     })
     .filter((entry): entry is DailyStageEntry => Boolean(entry));
+  const overdueEntries = overdueStageEvents(state.stageEvents, date)
+    .map((event) => {
+      const item = state.contents.find((content) => content.id === event.contentId);
+      return item ? { event, item } : null;
+    })
+    .filter((entry): entry is DailyStageEntry => Boolean(entry));
   const reviewDue = state.contents.filter(
     (item) =>
       item.publicationStatus === "published" &&
@@ -750,7 +757,7 @@ export default function Cockpit() {
 
   function removeFromToday(eventId: string) {
     setState((prev) => removeStageEvent(prev, eventId));
-    setToast("已移出今日推进");
+    setToast("已移出档期");
   }
 
   function onDropStage(event: DragEvent, stage: ContentStage) {
@@ -935,7 +942,7 @@ export default function Cockpit() {
           {view === "momentum" ? (
             <section className="page momentum-page">
               <div className="page-heading split-heading"><div><span className="eyebrow">MOMENTUM</span><EditablePageTitle value={state.pageTitles[momentumPeriod]} fallback={DEFAULT_PAGE_TITLES[momentumPeriod]} onChange={(value) => updatePageTitle(momentumPeriod, value)} /><p>{momentumPeriod === "today" ? "今日 Todo 自动读取档期；一个任务就是一条内容的一个大阶段。" : "本周总览自动汇总档期，不需要再维护一份周计划。"}</p></div><div className="period-switch momentum-period-switch" role="tablist" aria-label="推进时间范围"><button className={momentumPeriod === "today" ? "active" : ""} onClick={() => setMomentumPeriod("today")} role="tab" aria-selected={momentumPeriod === "today"}>今日</button><button className={momentumPeriod === "week" ? "active" : ""} onClick={() => setMomentumPeriod("week")} role="tab" aria-selected={momentumPeriod === "week"}>本周</button></div></div>
-              {momentumPeriod === "today" ? <DayView items={todayEntries} stageColors={state.stageColors} open={openContent} openSchedule={() => setView("schedule")} moveToday={moveToday} toggleComplete={toggleTodayComplete} removeFromToday={removeFromToday} /> : <WeekOverview state={state} open={openContent} openSchedule={() => setView("schedule")} />}
+              {momentumPeriod === "today" ? <DayView items={todayEntries} overdueItems={overdueEntries} stageColors={state.stageColors} open={openContent} openSchedule={() => setView("schedule")} moveToday={moveToday} toggleComplete={toggleTodayComplete} removeFromToday={removeFromToday} /> : <WeekOverview state={state} open={openContent} openSchedule={() => setView("schedule")} />}
             </section>
           ) : null}
 
@@ -957,8 +964,39 @@ export default function Cockpit() {
   );
 }
 
-function DayView({ items, stageColors, open, openSchedule, moveToday, toggleComplete, removeFromToday }: {
+function TodoCard({ entry, index, overdue = false, stageColors, open, openSchedule, moveToday, toggleComplete, removeFromToday }: {
+  entry: DailyStageEntry;
+  index: number;
+  overdue?: boolean;
+  stageColors: WorkspaceState["stageColors"];
+  open: (id: string) => void;
+  openSchedule: () => void;
+  moveToday: (eventId: string, direction: -1 | 1) => void;
+  toggleComplete: (eventId: string) => void;
+  removeFromToday: (eventId: string) => void;
+}) {
+  const { event, item } = entry;
+  const isDone = Boolean(event.completedAt);
+  const waiting = !isDone && stageIndex(item.stage) < stageIndex(event.stage);
+  return <article className={`${isDone ? "today-card completed" : "today-card"} ${waiting ? "waiting" : ""} ${overdue ? "overdue-todo-card" : ""}`}>
+    <label className="today-check" title={waiting ? `先完成${STAGE_LABELS[item.stage]}阶段` : isDone ? "取消完成并恢复原阶段" : `完成${STAGE_LABELS[event.stage]}阶段`}>
+      <input type="checkbox" checked={isDone} disabled={waiting} onChange={() => toggleComplete(event.id)} aria-label={isDone ? `撤销完成：${item.title}·${STAGE_LABELS[event.stage]}` : `完成：${item.title}·${STAGE_LABELS[event.stage]}`} />
+      <span aria-hidden="true">✓</span>
+    </label>
+    <div className={overdue ? "rank overdue-date" : "rank"}>{overdue ? <><small>原定</small><span>{event.plannedDate.slice(5).replace("-", "/")}</span></> : String(event.rank || index + 1).padStart(2, "0")}</div>
+    <button className="today-main" onClick={() => open(item.id)}>
+      {isDone ? <div className="completed-copy"><h3>{item.title}</h3><p>{STAGE_LABELS[event.stage]}已完成 · 当前进入{STAGE_LABELS[item.stage]}</p></div> : <><div><Badge tone={event.stage} color={stageColors[event.stage]}>{STAGE_LABELS[event.stage]}</Badge><Badge tone={`tier-${item.tier.toLowerCase()}`}>{item.tier}档</Badge>{overdue ? <Badge tone="clay">逾期</Badge> : null}{waiting ? <Badge tone="neutral">等待前置阶段</Badge> : null}</div><h3>{item.title}</h3><p><Icon name="arrow" />{waiting ? `先完成${STAGE_LABELS[item.stage]}` : NEXT_ACTIONS[event.stage]}</p></>}
+    </button>
+    {!isDone ? overdue
+      ? <div className="today-controls overdue-controls"><button onClick={openSchedule} aria-label={`调整${item.title}的${STAGE_LABELS[event.stage]}排期`}>改期</button><button onClick={() => removeFromToday(event.id)} aria-label="取消逾期排期">×</button></div>
+      : <div className="today-controls"><button onClick={() => moveToday(event.id, -1)} aria-label="上移">↑</button><button onClick={() => moveToday(event.id, 1)} aria-label="下移">↓</button><button onClick={() => removeFromToday(event.id)} aria-label="取消今日排期">×</button></div>
+      : <span className="done-status">阶段完成</span>}
+  </article>;
+}
+
+function DayView({ items, overdueItems, stageColors, open, openSchedule, moveToday, toggleComplete, removeFromToday }: {
   items: DailyStageEntry[];
+  overdueItems: DailyStageEntry[];
   stageColors: WorkspaceState["stageColors"];
   open: (id: string) => void;
   openSchedule: () => void;
@@ -968,24 +1006,16 @@ function DayView({ items, stageColors, open, openSchedule, moveToday, toggleComp
 }) {
   const pending = items.filter(({ event }) => !event.completedAt).length;
   const completed = items.length - pending;
-  return <div className="panel today-panel todo-only-panel">
-    <div className="panel-heading"><div><span className="eyebrow">TODAY&apos;S TODO</span><h2>今天要完成的阶段</h2></div><div className="todo-heading-actions"><span className="count-label">{pending} 待完成 · {completed} 已完成</span><button className="text-button" onClick={openSchedule}>调整档期 →</button></div></div>
-    {items.length ? <div className="today-list">{items.map(({ event, item }, index) => {
-      const isDone = Boolean(event.completedAt);
-      const waiting = !isDone && stageIndex(item.stage) < stageIndex(event.stage);
-      return <article key={event.id} className={`${isDone ? "today-card completed" : "today-card"} ${waiting ? "waiting" : ""}`}>
-        <label className="today-check" title={waiting ? `先完成${STAGE_LABELS[item.stage]}阶段` : isDone ? "取消完成并恢复原阶段" : `完成${STAGE_LABELS[event.stage]}阶段`}>
-          <input type="checkbox" checked={isDone} disabled={waiting} onChange={() => toggleComplete(event.id)} aria-label={isDone ? `撤销完成：${item.title}·${STAGE_LABELS[event.stage]}` : `完成：${item.title}·${STAGE_LABELS[event.stage]}`} />
-          <span aria-hidden="true">✓</span>
-        </label>
-        <div className="rank">{String(event.rank || index + 1).padStart(2, "0")}</div>
-        <button className="today-main" onClick={() => open(item.id)}>
-          {isDone ? <div className="completed-copy"><h3>{item.title}</h3><p>{STAGE_LABELS[event.stage]}已完成 · 当前进入{STAGE_LABELS[item.stage]}</p></div> : <><div><Badge tone={event.stage} color={stageColors[event.stage]}>{STAGE_LABELS[event.stage]}</Badge><Badge tone={`tier-${item.tier.toLowerCase()}`}>{item.tier}档</Badge>{waiting ? <Badge tone="neutral">等待前置阶段</Badge> : null}</div><h3>{item.title}</h3><p><Icon name="arrow" />{waiting ? `先完成${STAGE_LABELS[item.stage]}` : NEXT_ACTIONS[event.stage]}</p></>}
-        </button>
-        {!isDone ? <div className="today-controls"><button onClick={() => moveToday(event.id, -1)} aria-label="上移">↑</button><button onClick={() => moveToday(event.id, 1)} aria-label="下移">↓</button><button onClick={() => removeFromToday(event.id)} aria-label="取消今日排期">×</button></div> : <span className="done-status">阶段完成</span>}
-      </article>;
-    })}</div> : <Empty title="今天没有 Todo" body="去档期规划，把某条内容的一个阶段拖到今天。" action={<button className="secondary-button" onClick={openSchedule}>打开档期规划</button>} />}
-    {items.length ? <div className="todo-footnote"><span>今日 Todo 完全来自档期</span><button onClick={openSchedule}>添加或调整阶段</button></div> : null}
+  return <div className="today-view-stack">
+    {overdueItems.length ? <section className="panel overdue-todo-panel">
+      <header className="overdue-todo-heading"><div><span className="eyebrow">OVERDUE</span><h2>逾期未完成</h2><p>保留原排期，不会自动挪入今天；完成、改期或移除后自动消失。</p></div><div><span>{overdueItems.length} 项</span><button className="text-button" onClick={openSchedule}>调整档期 →</button></div></header>
+      <div className="today-list overdue-todo-list">{overdueItems.map((entry, index) => <TodoCard key={entry.event.id} entry={entry} index={index} overdue stageColors={stageColors} open={open} openSchedule={openSchedule} moveToday={moveToday} toggleComplete={toggleComplete} removeFromToday={removeFromToday} />)}</div>
+    </section> : null}
+    <div className="panel today-panel todo-only-panel">
+      <div className="panel-heading"><div><span className="eyebrow">TODAY&apos;S TODO</span><h2>今天要完成的阶段</h2></div><div className="todo-heading-actions"><span className="count-label">{pending} 待完成 · {completed} 已完成</span><button className="text-button" onClick={openSchedule}>调整档期 →</button></div></div>
+      {items.length ? <div className="today-list">{items.map((entry, index) => <TodoCard key={entry.event.id} entry={entry} index={index} stageColors={stageColors} open={open} openSchedule={openSchedule} moveToday={moveToday} toggleComplete={toggleComplete} removeFromToday={removeFromToday} />)}</div> : <Empty title="今天没有 Todo" body="去档期规划，把某条内容的一个阶段拖到今天。" action={<button className="secondary-button" onClick={openSchedule}>打开档期规划</button>} />}
+      {items.length ? <div className="todo-footnote"><span>今日 Todo 完全来自档期</span><button onClick={openSchedule}>添加或调整阶段</button></div> : null}
+    </div>
   </div>;
 }
 

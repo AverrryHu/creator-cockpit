@@ -47,6 +47,10 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.doesNotMatch(page, /PeriodView|setPeriod/);
   assert.match(page, /momentumPeriod/);
   assert.match(page, /推进时间范围/);
+  assert.match(page, /逾期未完成/);
+  assert.match(page, /overdueStageEvents/);
+  assert.match(page, /overdueItems\.length/);
+  assert.match(styles, /\.overdue-todo-panel/);
   assert.match(page, /function WeekOverview/);
   assert.match(page, /已发布 \/ 预期发布/);
   assert.match(page, /本周需要推进的内容/);

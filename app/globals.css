@@ -165,6 +165,14 @@ textarea { resize: vertical; }
 .dashboard-grid { display: grid; gap: 20px; }
 .day-grid { grid-template-columns: minmax(0, 1.7fr) minmax(300px, .82fr); }
 .panel { border: 1px solid var(--line); border-radius: 15px; background: var(--panel-bg); box-shadow: 0 6px 24px rgba(52,48,39,.035); }
+.today-view-stack { display: grid; gap: 17px; }
+.overdue-todo-panel { overflow: hidden; border-color: color-mix(in srgb, var(--clay) 38%, var(--line)); box-shadow: inset 0 3px 0 var(--clay), 0 6px 24px rgba(52,48,39,.035); }
+.overdue-todo-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 19px 22px 11px; }
+.overdue-todo-heading h2 { margin: 4px 0 3px; font-family: "Songti SC", serif; font-size: 20px; font-weight: 600; }
+.overdue-todo-heading p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.55; }
+.overdue-todo-heading > div:last-child { display: flex; align-items: center; gap: 15px; }
+.overdue-todo-heading > div:last-child > span { color: var(--clay); font-family: Georgia, serif; font-size: 11px; white-space: nowrap; }
+.overdue-todo-list { padding-bottom: 14px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 22px 14px; }
 .panel-heading h2 { margin: 3px 0 0; font-family: "Songti SC", serif; font-size: 20px; font-weight: 600; }
 .count-label { color: var(--muted); font-family: Georgia, serif; font-size: 12px; }
@@ -193,6 +201,13 @@ textarea { resize: vertical; }
 .todo-heading-actions { display: flex; align-items: center; gap: 18px; }
 .today-card.waiting { border-color: #e5dfd3; background: #f2efe8; }
 .today-card.waiting .today-check, .today-card.waiting .today-main { opacity: .6; }
+.today-card.overdue-todo-card { grid-template-columns: 28px 50px minmax(0, 1fr) 45px; border-color: color-mix(in srgb, var(--clay) 28%, var(--line)); background: color-mix(in srgb, var(--clay-soft) 45%, var(--surface-soft)); }
+.today-card.overdue-todo-card:hover { border-color: color-mix(in srgb, var(--clay) 55%, var(--line)); background: color-mix(in srgb, var(--clay-soft) 55%, var(--surface)); }
+.overdue-date small, .overdue-date span { display: block; }
+.overdue-date small { margin-bottom: 2px; color: var(--muted); font-family: "PingFang SC", sans-serif; font-size: 7px; }
+.overdue-date span { color: var(--clay); font-size: 10px; }
+.overdue-controls { align-items: center; }
+.overdue-controls button:first-child { width: 36px; color: var(--clay); font-size: 8px; }
 .todo-footnote { display: flex; align-items: center; justify-content: space-between; margin: 4px 22px 20px; padding: 13px 15px; border-top: 1px solid var(--line); color: var(--muted); font-size: 9px; }
 .todo-footnote button { border: 0; background: transparent; color: var(--clay); font-size: 9px; font-weight: 650; }
 
@@ -978,6 +993,11 @@ html[data-theme="dark"] .today-card.completed {
   background: color-mix(in srgb, var(--olive-soft) 78%, var(--surface-soft));
 }
 
+html[data-theme="dark"] .today-card.overdue-todo-card.waiting {
+  border-color: color-mix(in srgb, var(--clay) 34%, var(--line));
+  background: color-mix(in srgb, var(--clay-soft) 55%, var(--surface-soft));
+}
+
 html[data-theme="dark"] .weekly-content-card.key,
 html[data-theme="dark"] .profile-settings-card {
   border-color: color-mix(in srgb, var(--clay) 38%, var(--line));
@@ -1120,7 +1140,7 @@ html[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator { 
   .weekly-quota-progress, .weekly-content-grid, .modal-quota-grid, .weekly-drag-board { grid-template-columns: 1fr; }.weekly-config-backdrop { padding: 0; }.weekly-config-modal { width: 100vw; max-height: 100vh; border-radius: 0; }.weekly-config-body { padding: 13px; }.config-section { padding: 13px; }.drag-column { min-height: 270px; }.drag-list { max-height: 280px; }
   .weekly-stage-selector { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .week-summary-panel > header, .week-content-heading { align-items: flex-start; flex-direction: column; }.week-summary-kpis { grid-template-columns: 1fr 1fr; }.week-summary-kpis > div { border-top: 1px solid var(--line); }.week-summary-kpis > div:nth-child(-n+2) { border-top: 0; }.week-summary-kpis > div:nth-child(2n) { border-right: 0; }.week-content-grid { grid-template-columns: 1fr; }
-  .todo-heading-actions { align-items: flex-end; flex-direction: column; gap: 5px; }.schedule-content-list, .schedule-operation-templates { grid-template-columns: 1fr; }.schedule-toolbar { align-items: flex-start; flex-direction: column; }.schedule-toolbar-actions { width: 100%; justify-content: space-between; }.schedule-calendar-panel { overflow-x: auto; }.schedule-weekdays, .schedule-month-grid { min-width: 760px; }.stage-schedule-field { grid-template-columns: 1fr; }.stage-schedule-field > button { text-align: left; }.live-session-modal { width: 100vw; max-height: 100vh; border-radius: 0; }.live-session-modal > footer { align-items: stretch; flex-direction: column-reverse; }.live-session-modal > footer > div:last-child { justify-content: flex-end; }.live-session-modal > footer .primary-button { flex: 1; }
+  .todo-heading-actions { align-items: flex-end; flex-direction: column; gap: 5px; }.overdue-todo-heading { flex-direction: column; }.overdue-todo-heading > div:last-child { width: 100%; justify-content: space-between; }.schedule-content-list, .schedule-operation-templates { grid-template-columns: 1fr; }.schedule-toolbar { align-items: flex-start; flex-direction: column; }.schedule-toolbar-actions { width: 100%; justify-content: space-between; }.schedule-calendar-panel { overflow-x: auto; }.schedule-weekdays, .schedule-month-grid { min-width: 760px; }.stage-schedule-field { grid-template-columns: 1fr; }.stage-schedule-field > button { text-align: left; }.live-session-modal { width: 100vw; max-height: 100vh; border-radius: 0; }.live-session-modal > footer { align-items: stretch; flex-direction: column-reverse; }.live-session-modal > footer > div:last-child { justify-content: flex-end; }.live-session-modal > footer .primary-button { flex: 1; }
   .stage-color-grid { grid-template-columns: 1fr; }.stage-color-modal { max-height: 94vh; }.schedule-type-delete-options { grid-template-columns: 1fr; }
 }
 

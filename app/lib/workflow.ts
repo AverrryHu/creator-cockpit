@@ -61,6 +61,21 @@ export function sortStageEvents(events: StageEvent[]) {
   );
 }
 
+export function overdueStageEvents(events: StageEvent[], today: string) {
+  return [...events]
+    .filter(
+      (event) =>
+        SCHEDULABLE_STAGES.includes(event.stage) &&
+        !event.completedAt &&
+        event.plannedDate < today,
+    )
+    .sort(
+      (a, b) =>
+        a.plannedDate.localeCompare(b.plannedDate) ||
+        a.rank - b.rank,
+    );
+}
+
 export function scheduleStageForDate(
   state: WorkspaceState,
   contentId: string,
