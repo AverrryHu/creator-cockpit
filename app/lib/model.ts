@@ -297,10 +297,10 @@ export const SCHEDULABLE_STAGES: WorkStage[] = [
 ];
 
 export const DEFAULT_CREATOR_PROFILE: CreatorProfile = {
-  creatorName: "Avery",
-  dashboardTitle: "Avery的自媒体 Dashboard",
+  creatorName: "示例创作者",
+  dashboardTitle: "示例创作者的内容工作台",
   primaryPlatform: "小红书",
-  contentFocus: "AI 产品与工作流",
+  contentFocus: "内容创作与效率工具",
 };
 
 export const DEFAULT_PAGE_TITLES: PageTitles = {

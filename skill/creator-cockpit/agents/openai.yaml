@@ -1,4 +1,4 @@
 interface:
-  display_name: "自媒体内容经营驾驶舱"
-  short_description: "在本机安全安装、启动、更新和修复自媒体内容经营驾驶舱"
-  default_prompt: "使用 $creator-cockpit 在本机安装并打开自媒体内容经营驾驶舱。"
+  display_name: "创作者管理看板"
+  short_description: "在本机安全安装、启动、更新、备份和修复创作者管理看板"
+  default_prompt: "使用 $creator-cockpit 在本机安装并打开创作者管理看板。"

@@ -140,10 +140,13 @@ function normalizeStageColors(value: unknown): Record<ContentStage, string> {
 
 function normalizeCreatorProfile(value: unknown): CreatorProfile {
   const candidate = value && typeof value === "object" ? value as Partial<Record<keyof CreatorProfile, unknown>> : {};
-  const creatorName = typeof candidate.creatorName === "string" ? candidate.creatorName.trim() : DEFAULT_CREATOR_PROFILE.creatorName;
+  const hasCreatorName = typeof candidate.creatorName === "string";
+  const creatorName = hasCreatorName ? candidate.creatorName.trim() : DEFAULT_CREATOR_PROFILE.creatorName;
   const dashboardTitle = typeof candidate.dashboardTitle === "string" && candidate.dashboardTitle.trim()
     ? candidate.dashboardTitle.trim()
-    : `${creatorName || "我的"}的自媒体 Dashboard`;
+    : hasCreatorName
+      ? `${creatorName || "我的"}的自媒体 Dashboard`
+      : DEFAULT_CREATOR_PROFILE.dashboardTitle;
   return {
     creatorName,
     dashboardTitle,

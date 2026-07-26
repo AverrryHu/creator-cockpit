@@ -140,8 +140,8 @@ function createContent(partial: Partial<ContentItem> & Pick<ContentItem, "id" | 
     publicationStatus: partial.publicationStatus ?? "draft",
     priority: partial.priority ?? "normal",
     tags: partial.tags ?? [],
-    createdAt: partial.createdAt ?? "2026-07-01",
-    updatedAt: partial.updatedAt ?? "2026-07-18",
+    createdAt: partial.createdAt ?? shiftDate(date, -14),
+    updatedAt: partial.updatedAt ?? date,
     publishedAt: partial.publishedAt ?? "",
     xhsLink: partial.xhsLink ?? "",
     coverCopy: partial.coverCopy ?? "",
@@ -160,26 +160,38 @@ function createContent(partial: Partial<ContentItem> & Pick<ContentItem, "id" | 
   };
 }
 
-function createGoal(): GoalCycle {
+function currentQuarterRange(value = date) {
+  const [year, month] = value.split("-").map(Number);
+  const startMonth = Math.floor((month - 1) / 3) * 3;
+  const endDay = new Date(Date.UTC(year, startMonth + 3, 0)).getUTCDate();
   return {
-    id: "goal-2026-q3",
-    objective: "建立稳定的 AI 内容产线，并做出能够代表账号方向的系列内容。",
-    startDate: "2026-07-01",
-    endDate: "2026-09-30",
+    id: `goal-${year}-q${Math.floor(startMonth / 3) + 1}`,
+    startDate: `${year}-${String(startMonth + 1).padStart(2, "0")}-01`,
+    endDate: `${year}-${String(startMonth + 3).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`,
+  };
+}
+
+function createGoal(): GoalCycle {
+  const quarter = currentQuarterRange();
+  return {
+    id: quarter.id,
+    objective: "建立稳定的内容节奏，并持续产出对受众真正有帮助的作品。",
+    startDate: quarter.startDate,
+    endDate: quarter.endDate,
     status: "active",
-    outputTarget: 36,
+    outputTarget: 12,
     quotas: [
-      { contentType: "AI 产品实测", target: 10 },
-      { contentType: "AI 工作流 / 教程", target: 10 },
-      { contentType: "Vibe Coding 作品", target: 8 },
-      { contentType: "AI 热点观点", target: 6 },
-      { contentType: "商业内容", target: 2 },
+      { contentType: "AI 产品实测", target: 4 },
+      { contentType: "AI 工作流 / 教程", target: 3 },
+      { contentType: "Vibe Coding 作品", target: 2 },
+      { contentType: "AI 热点观点", target: 2 },
+      { contentType: "商业内容", target: 1 },
     ],
-    followerStart: 4200,
-    followerTarget: 10000,
+    followerStart: 1000,
+    followerTarget: 2000,
     qualityMetric: "saveRate",
-    qualityThreshold: 3.5,
-    qualityTarget: 8,
+    qualityThreshold: 3,
+    qualityTarget: 3,
   };
 }
 
@@ -195,133 +207,133 @@ function createDemoState(): WorkspaceState {
   const goal = createGoal();
   const contents = [
     createContent({
-      id: "content-gpt-live",
-      title: "GPT Live 不是翻译器，是我的口语陪练",
-      idea: "用一个真实的展会英语对话，展示练习—实战—复盘的完整闭环。",
+      id: "content-ai-tools",
+      title: "示例｜3 个适合新手的 AI 效率工具",
+      idea: "从一个常见工作任务出发，对比三种工具分别适合什么人。",
       contentType: "AI 产品实测",
       tier: "B",
       stage: "script",
       priority: "high",
       topic: {
-        audience: "想练英语但不敢开口的职场人",
-        painPoint: "练习场景与真实对话脱节",
-        pointOfView: "AI 最有价值的不是翻译，而是制造低成本的真实练习。",
-        commonAngle: "罗列实时语音功能",
-        contrastAngle: "让 AI 先当老师，再去展会实战，回来继续复盘",
-        assets: "对话录屏、WAIC 现场画面、前后对比",
-        minimumProduction: "正面口播 + 2 段屏幕录制",
+        audience: "刚开始尝试 AI 工具的内容创作者",
+        painPoint: "工具很多，不知道该从哪一个开始",
+        pointOfView: "先按具体任务选工具，比追逐功能列表更有效。",
+        commonAngle: "罗列热门工具功能",
+        contrastAngle: "让三个工具完成同一项任务，再比较过程和结果",
+        assets: "操作录屏、结果对比、适用人群卡片",
+        minimumProduction: "正面口播 + 3 段操作录屏",
         score: { audience: 5, pain: 4, scene: 5, demonstrable: 5, distribution: 4, efficiency: 4 },
       },
       script: {
-        headline: "我把 GPT Live 当成了 24 小时口语陪练",
-        hook: "我最怕的不是英语差，是练了半天，真遇到外国人还是一句都说不出来。",
-        conclusion: "AI 口语工具的终点，不是纠音，而是把你送进真实场景。",
-        body: "1. 先让它模拟展会对话\n2. 到现场完成真实交流\n3. 回来复盘卡壳位置",
-        example: "展示一次真实问答和复盘建议",
-        ending: "先练一个你这周真的会遇到的场景。",
+        headline: "AI 工具不用装一堆，先选对这三个入口",
+        hook: "如果你刚开始用 AI，最容易浪费时间的事就是同时试十几个工具。",
+        conclusion: "真正重要的不是工具数量，而是它能不能稳定完成你的任务。",
+        body: "1. 信息整理\n2. 内容草拟\n3. 结果检查",
+        example: "展示同一份素材经过三类工具处理后的结果",
+        ending: "先选一个你每周都会重复的任务开始。",
       },
     }),
     createContent({
-      id: "content-cockpit",
-      title: "我给自己的自媒体做了一个经营驾驶舱",
-      idea: "把选题、制作、发布和复盘放到一条线上，展示真实使用场景。",
+      id: "content-weekly-review",
+      title: "示例｜我用一张表复盘一周内容",
+      idea: "展示如何从发布记录中快速找到下周值得继续做的方向。",
       contentType: "Vibe Coding 作品",
       tier: "A",
       stage: "editing",
       publicationStatus: "scheduled",
       priority: "high",
       topic: {
-        audience: "被 Notion 和表格弄得更忙的内容创作者",
-        painPoint: "灵感很多，但很少真正走到发布和复盘",
-        pointOfView: "问题不是缺任务管理，而是缺一条内容从判断到反馈的闭环。",
-        commonAngle: "展示一个好看的看板",
-        contrastAngle: "从一条死在灵感池里的内容讲起",
-        assets: "看板录屏、旧表格、流程对比",
+        audience: "发布后不知道该复盘什么的创作者",
+        painPoint: "记录了很多数字，却没有形成下一步判断",
+        pointOfView: "复盘的目的不是汇报数据，而是决定下一条内容怎么做。",
+        commonAngle: "展示复杂的数据报表",
+        contrastAngle: "只保留会改变下周行动的三个问题",
+        assets: "示例表格、发布记录、前后判断对比",
         minimumProduction: "录屏 + 画外音",
         score: { audience: 5, pain: 5, scene: 5, demonstrable: 5, distribution: 4, efficiency: 3 },
       },
     }),
     createContent({
-      id: "content-agent",
-      title: "别再把 Agent 当聊天机器人",
-      contentType: "AI 热点观点",
+      id: "content-agent-guide",
+      title: "示例｜第一次使用 AI Agent，要先准备什么",
+      contentType: "AI 工作流 / 教程",
       tier: "C",
       stage: "topic",
-      updatedAt: "2026-07-14",
+      updatedAt: shiftDate(date, -4),
       topic: {
         ...blankTopic(),
-        audience: "正在尝试 AI Agent 的产品与运营人员",
-        painPoint: "一直在对话，却没有稳定交付物",
-        pointOfView: "Agent 的核心不是会聊天，而是围绕验收标准持续完成任务。",
-        contrastAngle: "Prompt 的尽头不是更长的 Prompt，而是反馈循环",
+        audience: "第一次尝试 Agent 的知识工作者",
+        painPoint: "任务描述很长，但产出仍然不可用",
+        pointOfView: "先给清楚输入、边界和验收标准，再让 Agent 开始执行。",
+        contrastAngle: "不是写更长的提示词，而是先定义什么叫完成",
         score: { audience: 4, pain: 4, scene: 4, demonstrable: 3, distribution: 4, efficiency: 5 },
       },
     }),
     createContent({
-      id: "content-codex",
-      title: "Codex 帮我把选题变成了可交互工具",
+      id: "content-prompt-template",
+      title: "示例｜把一个提示词做成可复用模板",
       contentType: "AI 工作流 / 教程",
       tier: "B",
       stage: "publishing",
       publicationStatus: "scheduled",
-      coverCopy: "不是帮我写稿，而是做出一个工具",
-      updatedAt: "2026-07-18",
+      coverCopy: "从一次性提问，到每周都能复用",
+      updatedAt: date,
     }),
     createContent({
-      id: "content-workflow",
-      title: "我的 AI 自媒体效率工作流",
-      contentType: "AI 工作流 / 教程",
+      id: "content-opening-test",
+      title: "示例｜我测试了 3 种视频开头",
+      contentType: "AI 热点观点",
       tier: "B",
       stage: "review",
       publicationStatus: "published",
-      publishedAt: "2026-07-16",
-      metrics: { views: 6200, likes: 422, saves: 301, comments: 36, followerGain: 128, capturedAt: "2026-07-18" },
+      publishedAt: shiftDate(date, -6),
+      metrics: { views: 3200, likes: 180, saves: 145, comments: 22, followerGain: 48, capturedAt: shiftDate(date, -3) },
       review: {
         rating: 4,
-        analysis: "流程本身有价值，评论也集中追问选题卡模板；但前 5 秒还可以更具体。",
-        learnedRule: "讲工作流时先展示最终工作台，再解释每一步。",
+        analysis: "结果前置的版本完播更稳定，但开头仍可以减少背景铺垫。",
+        learnedRule: "教程内容先展示结果，再解释过程。",
         completedAt: "",
       },
     }),
     createContent({
-      id: "content-creators",
-      title: "从夯到拉：AI 博主类型锐评",
-      contentType: "AI 热点观点",
+      id: "content-tool-comparison",
+      title: "示例｜同一项任务，我对比了 3 个 AI 工具",
+      contentType: "AI 产品实测",
       tier: "B",
       stage: "archived",
       publicationStatus: "published",
-      publishedAt: "2026-07-10",
-      metrics: { views: 1680, likes: 64, saves: 19, comments: 41, followerGain: 8, capturedAt: "2026-07-13" },
+      publishedAt: shiftDate(date, -10),
+      metrics: { views: 1800, likes: 92, saves: 61, comments: 18, followerGain: 20, capturedAt: shiftDate(date, -7) },
       review: {
-        rating: 2,
-        analysis: "评论讨论了分类，但没有形成收藏动机。标题承诺锐评，正文却更像温和分类。",
-        learnedRule: "标题承诺评价，就必须给清晰标准和真正判断。",
-        completedAt: "2026-07-13T12:00:00.000Z",
+        rating: 3,
+        analysis: "对比维度比较清楚，但实际操作画面不足，观众难以判断差异。",
+        learnedRule: "工具对比必须使用同一份输入，并展示可验证的结果。",
+        completedAt: `${shiftDate(date, -7)}T12:00:00.000Z`,
       },
     }),
     createContent({
-      id: "content-kimi",
-      title: "我让 Kimi Work 跑完竞品分析 70% 的脏活",
-      contentType: "AI 产品实测",
+      id: "content-note-workflow",
+      title: "示例｜用 AI 整理一周工作笔记",
+      contentType: "AI 工作流 / 教程",
       tier: "A",
       stage: "archived",
       publicationStatus: "published",
-      publishedAt: "2026-07-13",
-      metrics: { views: 12800, likes: 703, saves: 612, comments: 58, followerGain: 286, capturedAt: "2026-07-16" },
+      publishedAt: shiftDate(date, -7),
+      metrics: { views: 5600, likes: 310, saves: 288, comments: 31, followerGain: 96, capturedAt: shiftDate(date, -4) },
       review: {
         rating: 5,
-        analysis: "产品经理集中收藏与私信要 Prompt。具体工作场景比功能介绍更能建立价值。",
-        learnedRule: "AI 产品内容先讲一个高成本任务，再讲工具如何接管过程。",
-        completedAt: "2026-07-16T12:00:00.000Z",
+        analysis: "具体输入和最终结果都展示充分，观众能够直接照着复现。",
+        learnedRule: "工作流内容要同时展示原始素材和最终产物。",
+        completedAt: `${shiftDate(date, -4)}T12:00:00.000Z`,
       },
     }),
     createContent({
-      id: "content-input",
-      title: "AI 信息太多，我只保留这三个输入源",
+      id: "content-idea-list",
+      title: "示例｜下周可以尝试的 5 个选题",
       contentType: "AI 工作流 / 教程",
       tier: "C",
       stage: "inbox",
-      updatedAt: "2026-07-11",
+      updatedAt: shiftDate(date, -2),
     }),
   ];
 
@@ -333,16 +345,16 @@ function createDemoState(): WorkspaceState {
     lastBackupAt: "",
     contents,
     stageEvents: [
-      { id: "event-gpt-script", contentId: "content-gpt-live", stage: "script", plannedDate: date, rank: 1, completedAt: "" },
-      { id: "event-gpt-record", contentId: "content-gpt-live", stage: "recording", plannedDate: date, rank: 2, completedAt: "" },
-      { id: "event-cockpit-edit", contentId: "content-cockpit", stage: "editing", plannedDate: date, rank: 3, completedAt: "" },
-      { id: "event-cockpit-publish", contentId: "content-cockpit", stage: "publishing", plannedDate: shiftDate(date, 2), rank: 1, completedAt: "" },
-      { id: "event-agent-topic", contentId: "content-agent", stage: "topic", plannedDate: shiftDate(date, 1), rank: 1, completedAt: "" },
-      { id: "event-agent-script", contentId: "content-agent", stage: "script", plannedDate: shiftDate(date, 2), rank: 2, completedAt: "" },
-      { id: "event-codex-publish", contentId: "content-codex", stage: "publishing", plannedDate: shiftDate(date, 1), rank: 2, completedAt: "" },
-      { id: "event-workflow-publish", contentId: "content-workflow", stage: "publishing", plannedDate: "2026-07-16", rank: 0, completedAt: "2026-07-16T12:00:00.000Z" },
-      { id: "event-creators-publish", contentId: "content-creators", stage: "publishing", plannedDate: "2026-07-10", rank: 0, completedAt: "2026-07-10T12:00:00.000Z" },
-      { id: "event-kimi-publish", contentId: "content-kimi", stage: "publishing", plannedDate: "2026-07-13", rank: 0, completedAt: "2026-07-13T12:00:00.000Z" },
+      { id: "event-ai-tools-script", contentId: "content-ai-tools", stage: "script", plannedDate: date, rank: 1, completedAt: "" },
+      { id: "event-ai-tools-record", contentId: "content-ai-tools", stage: "recording", plannedDate: date, rank: 2, completedAt: "" },
+      { id: "event-weekly-review-edit", contentId: "content-weekly-review", stage: "editing", plannedDate: date, rank: 3, completedAt: "" },
+      { id: "event-weekly-review-publish", contentId: "content-weekly-review", stage: "publishing", plannedDate: shiftDate(date, 2), rank: 1, completedAt: "" },
+      { id: "event-agent-guide-topic", contentId: "content-agent-guide", stage: "topic", plannedDate: shiftDate(date, 1), rank: 1, completedAt: "" },
+      { id: "event-agent-guide-script", contentId: "content-agent-guide", stage: "script", plannedDate: shiftDate(date, 2), rank: 2, completedAt: "" },
+      { id: "event-prompt-template-publish", contentId: "content-prompt-template", stage: "publishing", plannedDate: shiftDate(date, 1), rank: 2, completedAt: "" },
+      { id: "event-opening-test-publish", contentId: "content-opening-test", stage: "publishing", plannedDate: shiftDate(date, -6), rank: 0, completedAt: `${shiftDate(date, -6)}T12:00:00.000Z` },
+      { id: "event-tool-comparison-publish", contentId: "content-tool-comparison", stage: "publishing", plannedDate: shiftDate(date, -10), rank: 0, completedAt: `${shiftDate(date, -10)}T12:00:00.000Z` },
+      { id: "event-note-workflow-publish", contentId: "content-note-workflow", stage: "publishing", plannedDate: shiftDate(date, -7), rank: 0, completedAt: `${shiftDate(date, -7)}T12:00:00.000Z` },
     ],
     reviewDays: [
       { id: "review-day-demo", plannedDate: shiftDate(date, 3), note: "", createdAt: new Date().toISOString() },
@@ -350,12 +362,12 @@ function createDemoState(): WorkspaceState {
     liveSessions: [
       {
         id: "live-demo",
-        title: "AI 工具实战答疑",
+        title: "示例｜内容工具答疑",
         plannedDate: shiftDate(date, 5),
         startTime: "20:00",
         endTime: "21:00",
         platform: "小红书",
-        content: "演示本周使用频率最高的三个 AI 工具，并回答看板搭建问题。",
+        content: "演示本周使用频率最高的三个内容工具，并回答观众问题。",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -376,11 +388,11 @@ function createDemoState(): WorkspaceState {
       {
         id: "schedule-object-event-demo",
         typeId: "schedule-type-event",
-        title: "WAIC 创作者交流活动",
+        title: "示例｜内容创作者线下交流",
         plannedDate: shiftDate(date, 4),
         startTime: "14:00",
         endTime: "17:00",
-        details: "准备采访问题和现场拍摄清单。",
+        details: "准备交流提纲和现场素材清单。",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -389,12 +401,12 @@ function createDemoState(): WorkspaceState {
     goal,
     goalHistory: [],
     followerSnapshots: [
-      { id: "followers-0701", date: "2026-07-01", followers: 4200 },
-      { id: "followers-0714", date: "2026-07-14", followers: 4680 },
+      { id: "followers-demo-start", date: goal.startDate, followers: 1000 },
+      { id: "followers-demo-current", date, followers: 1240 },
     ],
     insightRules: [
-      { id: "rule-1", text: "AI 产品内容先讲一个高成本任务，再讲工具如何接管过程。", sourceContentId: "content-kimi", createdAt: "2026-07-16", active: true },
-      { id: "rule-2", text: "标题承诺评价，就必须给清晰标准和真正判断。", sourceContentId: "content-creators", createdAt: "2026-07-13", active: true },
+      { id: "rule-1", text: "工作流内容要同时展示原始素材和最终产物。", sourceContentId: "content-note-workflow", createdAt: shiftDate(date, -4), active: true },
+      { id: "rule-2", text: "工具对比必须使用同一份输入，并展示可验证的结果。", sourceContentId: "content-tool-comparison", createdAt: shiftDate(date, -7), active: true },
     ],
     contentTypes: DEFAULT_CONTENT_TYPES,
   };
@@ -1923,7 +1935,7 @@ function SettingsView({ state, pageTitle, updateTitle, setState, exportData, fil
           <h2>创作者档案</h2>
           <p>这些信息只用于个性化工作台，不会公开上传。看板名称会同步到侧边栏和浏览器标签。</p>
           <div className="profile-settings-grid">
-            <label className="field"><span>用户姓名 / 昵称</span><input value={state.profile.creatorName} onChange={(event) => updateCreatorName(event.target.value)} placeholder="例如 Avery" /></label>
+            <label className="field"><span>用户姓名 / 昵称</span><input value={state.profile.creatorName} onChange={(event) => updateCreatorName(event.target.value)} placeholder="例如 小林" /></label>
             <label className="field"><span>看板名称</span><input value={state.profile.dashboardTitle} onChange={(event) => updateProfile({ dashboardTitle: event.target.value })} placeholder={`${state.profile.creatorName || "我的"}的自媒体 Dashboard`} /></label>
             <label className="field"><span>主要平台</span><input list="settings-platform-options" value={state.profile.primaryPlatform} onChange={(event) => updateProfile({ primaryPlatform: event.target.value })} placeholder="例如 小红书" /><datalist id="settings-platform-options"><option value="小红书" /><option value="抖音" /><option value="B站" /><option value="视频号" /><option value="多平台" /></datalist></label>
             <label className="field"><span>内容方向</span><input value={state.profile.contentFocus} onChange={(event) => updateProfile({ contentFocus: event.target.value })} placeholder="例如 AI 产品与工作流" /></label>
@@ -2023,7 +2035,7 @@ function Onboarding({ start }: { start: (mode: "demo" | "blank", profile: Creato
     <h1>先把它变成你的工作台。</h1>
     <p>填写三个简单信息，内容与目标数据仍只保存在这台设备，不需要注册。</p>
     <div className="onboarding-profile">
-      <label><span>姓名 / 昵称</span><input autoFocus value={creatorName} onChange={(event) => setCreatorName(event.target.value)} placeholder="例如 Avery" /></label>
+      <label><span>姓名 / 昵称</span><input autoFocus value={creatorName} onChange={(event) => setCreatorName(event.target.value)} placeholder="例如 小林" /></label>
       <label><span>主要平台</span><input list="onboarding-platform-options" value={primaryPlatform} onChange={(event) => setPrimaryPlatform(event.target.value)} /><datalist id="onboarding-platform-options"><option value="小红书" /><option value="抖音" /><option value="B站" /><option value="视频号" /><option value="多平台" /></datalist></label>
       <label><span>内容方向</span><input value={contentFocus} onChange={(event) => setContentFocus(event.target.value)} placeholder="例如 AI 产品与工作流" /></label>
     </div>

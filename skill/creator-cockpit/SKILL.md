@@ -1,9 +1,9 @@
 ---
 name: creator-cockpit
-description: 在本机安装、启动、更新或修复 Creator Cockpit 自媒体内容经营驾驶舱。适用于用户希望搭建个人内容管理看板、从 GitHub 安装 Creator Cockpit、恢复本地备份，或排查 Node.js 与 pnpm 运行环境问题的场景。
+description: 在本机安装、启动、更新或修复 Creator Cockpit 创作者管理看板。适用于用户希望搭建个人内容工作台、从 GitHub 安装 Creator Cockpit、恢复本地备份，或排查 Node.js 与 pnpm 运行环境问题的场景。
 ---
 
-# 安装自媒体内容经营驾驶舱
+# 安装创作者管理看板
 
 使用以下 GitHub 仓库中的最新稳定版本：
 
@@ -24,10 +24,10 @@ description: 在本机安装、启动、更新或修复 Creator Cockpit 自媒�
 1. 检查操作系统，并确认已安装 Git 和 Node.js 22.13 或更高版本。
 2. 检查 pnpm，优先使用 `package.json` 中声明的包管理器版本。
 3. 如果缺少运行环境，说明最小必要改动；安装系统软件前先征得用户同意。
-4. 查询 GitHub Releases，选择最新的稳定非预览版本。首个公开版本为 `v1.0.0`。
-5. 将该版本克隆到用户确认的空目录：
+4. 查询 `https://api.github.com/repos/AverrryHu/creator-cockpit/releases/latest`，读取 `tag_name` 作为最新稳定版本。不要依赖 Skill 文本中记录的历史版本号；如果 API 没有返回稳定 Release，停止安装并说明原因。
+5. 将上一步得到的最新稳定标签克隆到用户确认的空目录：
 
-   `git clone --branch v1.0.0 --depth 1 https://github.com/AverrryHu/creator-cockpit.git <目标目录>`
+   `git clone --branch <最新稳定标签> --depth 1 https://github.com/AverrryHu/creator-cockpit.git <目标目录>`
 
 6. 进入项目目录。如果没有 pnpm，运行 `corepack enable`；如果需要管理员权限，先向用户说明，并在获得同意后使用合适的用户级方案。
 7. 运行 `pnpm install --frozen-lockfile`。
@@ -48,11 +48,12 @@ description: 在本机安装、启动、更新或修复 Creator Cockpit 自媒�
 
 1. 先从看板导出完整 JSON 备份。
 2. 保持原安装目录、浏览器用户、主机名和端口不变。
-3. 查询最新稳定版，并向用户说明版本变化。
+3. 通过 GitHub Releases API 查询最新稳定标签，并用 `git describe --tags --always` 检查当前安装版本；向用户说明版本变化。
 4. 未经明确同意，不要重置或丢弃用户对源代码的本地修改。
-5. 将安装切换到选定的稳定版本，然后运行 `pnpm install --frozen-lockfile`。
-6. 运行 `pnpm test`，通过后重新启动看板。
-7. 确认已有本地数据可以正常打开，数据结构迁移已经完成。
+5. 如果工作区干净，运行 `git fetch --tags --force`，再切换到选定的稳定标签；如果存在本地修改，先停止并让用户决定保留方式。
+6. 运行 `pnpm install --frozen-lockfile`。
+7. 运行 `pnpm test`，通过后重新启动看板。
+8. 确认已有本地数据可以正常打开，数据结构迁移已经完成。
 
 ## 修复
 

@@ -374,7 +374,7 @@ test("custom schedule templates can create unlimited independent events", () => 
   const first: ScheduleObject = {
     id: "schedule-object-1",
     typeId: type.id,
-    title: "WAIC 探展",
+    title: "线下探展",
     plannedDate: "2026-07-20",
     startTime: "10:00",
     endTime: "16:00",
@@ -470,7 +470,7 @@ test("legacy workspaces migrate dates into stage events and discard weekly plann
     contentTypes: ["AI 产品实测"],
   });
   assert.equal(migrated?.schemaVersion, 13);
-  assert.equal(migrated?.profile.dashboardTitle, "Avery的自媒体 Dashboard");
+  assert.equal(migrated?.profile.dashboardTitle, "示例创作者的内容工作台");
   assert.equal(migrated?.pageTitles.goals, goal.objective);
   assert.equal(migrated?.stageColors.recording, DEFAULT_STAGE_COLORS.recording);
   assert.equal(migrated?.contents[0].stage, "editing");

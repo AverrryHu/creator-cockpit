@@ -21,13 +21,13 @@ test("renders the creator cockpit shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
   assert.match(html, /<title>内容驾驶舱<\/title>/i);
-  assert.match(html, /Avery的自媒体 Dashboard/);
+  assert.match(html, /示例创作者的内容工作台/);
   assert.match(html, /今日 Todo/);
   assert.match(html, /档期规划/);
   assert.match(html, /今天要完成的阶段/);
   assert.match(html, /大目标（阶段）/);
   assert.match(html, /复盘实验室/);
-  assert.match(html, /GPT Live 不是翻译器/);
+  assert.match(html, /3 个适合新手的 AI 效率工具/);
   assert.doesNotMatch(html, developmentPreviewMeta);
   assert.doesNotMatch(html, /react-loading-skeleton/);
 });
@@ -204,4 +204,18 @@ test("keeps device-local storage and AI fallback contracts in source", async () 
   assert.match(api, /OPENAI_API_KEY/);
   assert.match(api, /mode:\s*"prompt"/);
   assert.match(api, /json_schema/);
+});
+
+test("keeps stable distribution instructions release-aware", async () => {
+  const [skill, readme, packageJson] = await Promise.all([
+    import("node:fs/promises").then(({ readFile }) => readFile(new URL("../skill/creator-cockpit/SKILL.md", import.meta.url), "utf8")),
+    import("node:fs/promises").then(({ readFile }) => readFile(new URL("../README.md", import.meta.url), "utf8")),
+    import("node:fs/promises").then(({ readFile }) => readFile(new URL("../package.json", import.meta.url), "utf8")),
+  ]);
+  assert.match(skill, /releases\/latest/);
+  assert.match(skill, /<最新稳定标签>/);
+  assert.doesNotMatch(skill, /git clone --branch v\d/);
+  assert.match(readme, /GitHub Releases/);
+  assert.doesNotMatch(readme, /git clone --branch v\d/);
+  assert.equal(JSON.parse(packageJson).version, "1.1.0");
 });

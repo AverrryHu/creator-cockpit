@@ -25,7 +25,7 @@
 
 > 帮我在本机安装并打开 Creator Cockpit。
 
-Agent 会检查运行环境、下载固定版本、安装依赖并打开本地看板，不会覆盖已有目录，也不会要求你在聊天中发送 API Key。
+Agent 会检查运行环境、查询 GitHub 最新稳定版、安装依赖并打开本地看板，不会覆盖已有目录，也不会要求你在聊天中发送 API Key。
 
 ## 手动安装
 
@@ -36,7 +36,7 @@ Agent 会检查运行环境、下载固定版本、安装依赖并打开本地�
 - Corepack / pnpm
 
 ```bash
-git clone --branch v1.0.0 https://github.com/AverrryHu/creator-cockpit.git
+git clone https://github.com/AverrryHu/creator-cockpit.git
 cd creator-cockpit
 corepack enable
 pnpm install --frozen-lockfile
@@ -44,6 +44,8 @@ pnpm dev
 ```
 
 根据终端提示打开本地地址，默认是 [http://localhost:3000](http://localhost:3000)。
+
+上面的命令会取得 `main` 最新代码。如果希望安装固定稳定版，请在 [GitHub Releases](https://github.com/AverrryHu/creator-cockpit/releases/latest) 查看最新版本，并交给项目自带 Skill 安装。
 
 首次进入时可以选择示例工作区或空白工作区，并填写自己的姓名、平台与内容方向。
 
