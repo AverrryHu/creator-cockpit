@@ -4,10 +4,16 @@ import "./globals.css";
 const themeBootScript = `
   (() => {
     try {
+      const savedStyle = localStorage.getItem("creator-cockpit-style");
+      const style = ["editorial", "swiss", "future", "retro", "bauhaus"].includes(savedStyle)
+        ? savedStyle
+        : "editorial";
       const saved = localStorage.getItem("creator-cockpit-theme");
-      const theme = saved === "light" || saved === "dark"
+      const preferredTheme = saved === "light" || saved === "dark"
         ? saved
         : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const theme = style === "editorial" ? preferredTheme : "light";
+      document.documentElement.dataset.style = style;
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
     } catch {}

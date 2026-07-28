@@ -2,7 +2,10 @@ import type {
   ContentItem,
   ContentStage,
   CreatorProfile,
+  DesignStyle,
+  InspirationCard,
   LiveSession,
+  NavigationItemId,
   PageTitles,
   ReviewDay,
   ScheduleObject,
@@ -13,6 +16,8 @@ import type {
 import {
   CONTENT_STAGES,
   DEFAULT_CREATOR_PROFILE,
+  DEFAULT_DESIGN_STYLE,
+  DEFAULT_NAVIGATION_ORDER,
   DEFAULT_PAGE_TITLES,
   DEFAULT_SCHEDULE_OBJECT_TYPES,
   DEFAULT_STAGE_COLORS,
@@ -87,7 +92,7 @@ export function validateImport(value: unknown): value is WorkspaceState {
     goal?: unknown;
   };
   return (
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(candidate.schemaVersion ?? 0) &&
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].includes(candidate.schemaVersion ?? 0) &&
     Array.isArray(candidate.contents) &&
     Array.isArray(candidate.followerSnapshots) &&
     Array.isArray(candidate.contentTypes) &&
@@ -115,10 +120,13 @@ type LegacyContentItem = Omit<ContentItem, "stage" | "review"> & {
   reviewDueAt?: string;
 };
 
-type LegacyWorkspace = Omit<WorkspaceState, "schemaVersion" | "profile" | "pageTitles" | "contents" | "stageEvents" | "reviewDays" | "liveSessions" | "scheduleObjectTypes" | "scheduleObjects" | "stageColors"> & {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
+type LegacyWorkspace = Omit<WorkspaceState, "schemaVersion" | "designStyle" | "navigationOrder" | "profile" | "pageTitles" | "inspirationCards" | "contents" | "stageEvents" | "reviewDays" | "liveSessions" | "scheduleObjectTypes" | "scheduleObjects" | "stageColors"> & {
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16;
+  designStyle?: DesignStyle;
+  navigationOrder?: NavigationItemId[];
   profile?: Partial<CreatorProfile>;
   pageTitles?: Partial<PageTitles>;
+  inspirationCards?: Partial<InspirationCard>[];
   contents: LegacyContentItem[];
   stageEvents?: StageEvent[];
   reviewDays?: Partial<ReviewDay>[];
@@ -159,6 +167,27 @@ function normalizeCreatorProfile(value: unknown): CreatorProfile {
   };
 }
 
+function normalizeDesignStyle(value: unknown): DesignStyle {
+  return value === "editorial" || value === "swiss" || value === "future" || value === "retro" || value === "bauhaus"
+    ? value
+    : DEFAULT_DESIGN_STYLE;
+}
+
+function normalizeNavigationOrder(value: unknown): NavigationItemId[] {
+  const allowed = new Set<NavigationItemId>(DEFAULT_NAVIGATION_ORDER);
+  const seen = new Set<NavigationItemId>();
+  const ordered = Array.isArray(value)
+    ? value.flatMap((item) => {
+        if (typeof item !== "string" || !allowed.has(item as NavigationItemId)) return [];
+        const id = item as NavigationItemId;
+        if (seen.has(id)) return [];
+        seen.add(id);
+        return [id];
+      })
+    : [];
+  return [...ordered, ...DEFAULT_NAVIGATION_ORDER.filter((id) => !seen.has(id))];
+}
+
 function normalizePageTitles(value: unknown, goalObjective = ""): PageTitles {
   const candidate = value && typeof value === "object"
     ? value as Partial<Record<keyof PageTitles, unknown>>
@@ -168,6 +197,36 @@ function normalizePageTitles(value: unknown, goalObjective = ""): PageTitles {
     const migratedFallback = key === "goals" && goalObjective.trim() ? goalObjective.trim() : fallback;
     return [key, typeof title === "string" && title.trim() ? title : migratedFallback];
   })) as PageTitles;
+}
+
+function normalizeInspirationCards(value: unknown): InspirationCard[] {
+  if (!Array.isArray(value)) return [];
+  const ids = new Set<string>();
+  return value.flatMap((item, index) => {
+    if (!item || typeof item !== "object") return [];
+    const candidate = item as Partial<InspirationCard>;
+    const text = typeof candidate.text === "string" ? candidate.text.trim() : "";
+    if (!text) return [];
+    const id = typeof candidate.id === "string" && candidate.id
+      ? candidate.id
+      : `migrated-inspiration-${index}`;
+    if (ids.has(id)) return [];
+    ids.add(id);
+    const createdAt = typeof candidate.createdAt === "string" && candidate.createdAt
+      ? candidate.createdAt
+      : "1970-01-01T00:00:00.000Z";
+    return [{
+      id,
+      text,
+      createdAt,
+      updatedAt: typeof candidate.updatedAt === "string" && candidate.updatedAt
+        ? candidate.updatedAt
+        : createdAt,
+      convertedContentIds: Array.isArray(candidate.convertedContentIds)
+        ? candidate.convertedContentIds.filter((contentId): contentId is string => typeof contentId === "string")
+        : [],
+    }];
+  });
 }
 
 function normalizeReviewDays(value: unknown): ReviewDay[] {
@@ -430,11 +489,14 @@ export function migrateWorkspace(value: unknown): WorkspaceState | null {
     return { ...content, review: { ...content.review, completedAt } };
   });
   return {
-    schemaVersion: 13,
+    schemaVersion: 16,
+    designStyle: normalizeDesignStyle(legacy.designStyle),
+    navigationOrder: normalizeNavigationOrder(legacy.navigationOrder),
     profile: normalizeCreatorProfile(legacy.profile),
     pageTitles: normalizePageTitles(legacy.pageTitles, legacy.goal.objective),
     setupComplete: legacy.setupComplete ?? true,
     lastBackupAt: legacy.lastBackupAt ?? "",
+    inspirationCards: normalizeInspirationCards(legacy.inspirationCards),
     contents: reviewedContents,
     stageEvents: legacyStageEvents.filter((event) => event.stage !== "review"),
     reviewDays: normalizeReviewDays(legacy.reviewDays),
@@ -458,7 +520,8 @@ export function mergeWorkspace(current: WorkspaceState, incoming: WorkspaceState
   };
   return {
     ...current,
-    schemaVersion: 13,
+    schemaVersion: 16,
+    inspirationCards: mergeById(current.inspirationCards, incoming.inspirationCards),
     contents: mergeById(current.contents, incoming.contents),
     stageEvents: mergeById(current.stageEvents, incoming.stageEvents),
     reviewDays: mergeById(current.reviewDays, incoming.reviewDays),

@@ -22,6 +22,8 @@ import {
   CONTENT_STAGES,
   DEFAULT_CONTENT_TYPES,
   DEFAULT_CREATOR_PROFILE,
+  DEFAULT_DESIGN_STYLE,
+  DEFAULT_NAVIGATION_ORDER,
   DEFAULT_PAGE_TITLES,
   DEFAULT_SCHEDULE_OBJECT_TYPES,
   DEFAULT_STAGE_COLORS,
@@ -33,10 +35,13 @@ import {
   type ContentItem,
   type ContentStage,
   type CreatorProfile,
+  type DesignStyle,
   type FollowerSnapshot,
   type GoalCycle,
+  type InspirationCard,
   type InsightRule,
   type LiveSession,
+  type NavigationItemId,
   type PageTitleKey,
   type QualityMetric,
   type ScheduleObject,
@@ -86,12 +91,90 @@ import {
   transitionContentStage,
 } from "./lib/workflow";
 
-type NavView = "momentum" | "schedule" | "pipeline" | "goals" | "review" | "settings";
+type NavView = NavigationItemId | "settings";
 type ColorTheme = "light" | "dark";
 type DailyStageEntry = { event: StageEvent; item: ContentItem };
 type ContentDrawerTab = "overview" | "topic" | "script" | "recording" | "editing" | "publish" | "review";
+type ImportPreview = {
+  fileName: string;
+  sourceSchemaVersion: number;
+  workspace: WorkspaceState;
+};
 
 const date = todayISO();
+const APP_VERSION = "1.5.0";
+const NAV_ITEMS: ReadonlyArray<{ id: NavigationItemId; label: string; icon: string }> = [
+  { id: "inspirations", label: "灵感池", icon: "inspiration" },
+  { id: "momentum", label: "推进", icon: "momentum" },
+  { id: "schedule", label: "档期规划", icon: "schedule" },
+  { id: "pipeline", label: "内容总览", icon: "pipeline" },
+  { id: "goals", label: "大目标", icon: "goals" },
+  { id: "review", label: "复盘实验室", icon: "review" },
+];
+const DESIGN_STYLE_OPTIONS: ReadonlyArray<{
+  id: DesignStyle;
+  name: string;
+  tagline: string;
+  description: string;
+}> = [
+  { id: "editorial", name: "安静编辑部", tagline: "温和 · 内容感", description: "米白纸张、宋体标题和陶土色强调，也是唯一支持深色模式的风格。" },
+  { id: "swiss", name: "瑞士海报", tagline: "大胆 · 强秩序", description: "黑白网格、粗线和大字号，让信息像平面海报一样直接。" },
+  { id: "future", name: "未来实验室", tagline: "科技 · 轻盈", description: "渐变、柔光和悬浮面板，让看板更像一套 Creator OS。" },
+  { id: "retro", name: "复古操作台", tagline: "经典桌面系统", description: "窗口标题栏、等宽数字和硬朗控件，带有早期桌面软件质感。" },
+  { id: "bauhaus", name: "包豪斯积木", tagline: "几何 · 创意", description: "鲜明色块和几何模块，兼顾创作活力与清晰的信息组织。" },
+] as const;
+const VERSION_HISTORY = [
+  {
+    version: "1.5.0",
+    title: "灵感墙与个性化工作台",
+    date: "2026-07-29",
+    changes: [
+      "灵感池升级为左右布局的灵感墙，卡片支持详情查看、编辑和转为内容。",
+      "侧边栏主页面支持拖拽自定义顺序，并同步保存到本机与完整备份。",
+      "统一灵感卡片的固定高度、上下区域对齐和多风格显示效果。",
+    ],
+  },
+  {
+    version: "1.3.0",
+    title: "五套风格，自定义你的创作空间",
+    date: "2026-07-29",
+    changes: [
+      "新增安静编辑部、瑞士海报、未来实验室、复古操作台与包豪斯积木五套设计风格。",
+      "外观风格支持即时切换、本地保存与完整备份恢复。",
+      "安静编辑部继续支持浅色与深色，其余风格暂提供浅色版本。",
+    ],
+  },
+  {
+    version: "1.2.0",
+    title: "灵感先行，内容更好找",
+    date: "2026-07-29",
+    changes: [
+      "新增独立灵感池，灵感不再计入内容数据。",
+      "支持从灵感卡片创建内容，以及新建内容时选择灵感。",
+      "内容管线升级为内容总览，提供流程与列表两种视图。",
+      "新增版本记录、更新前备份提醒与导入预览。",
+    ],
+  },
+  {
+    version: "1.1.0",
+    title: "完整的个人内容生产工作台",
+    date: "2026-07-25",
+    changes: [
+      "新增今日 Todo、本周总览与可拖拽档期规划。",
+      "完善大目标、复盘实验室、运营日程与阶段配色。",
+      "加入深色模式、侧边栏收缩和个性化配置。",
+    ],
+  },
+  {
+    version: "1.0.0",
+    title: "创作者管理看板初版",
+    date: "2026-07-18",
+    changes: [
+      "建立内容阶段管线、发布管理和本地数据保存。",
+      "提供完整 JSON 备份与恢复。",
+    ],
+  },
+] as const;
 
 function shiftDate(value: string, days: number) {
   const next = new Date(`${value}T12:00:00`);
@@ -157,6 +240,24 @@ function createContent(partial: Partial<ContentItem> & Pick<ContentItem, "id" | 
       learnedRule: "",
       completedAt: "",
     },
+  };
+}
+
+function titleFromInspiration(text: string) {
+  const firstLine = text.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "未命名内容";
+  return firstLine.length > 32 ? `${firstLine.slice(0, 32)}…` : firstLine;
+}
+
+function importSummary(workspace: WorkspaceState) {
+  return {
+    inspirations: workspace.inspirationCards.length,
+    contents: workspace.contents.length,
+    schedules: workspace.stageEvents.length
+      + workspace.reviewDays.length
+      + workspace.liveSessions.length
+      + workspace.scheduleObjects.length,
+    reviews: workspace.contents.filter((item) => Boolean(item.review.completedAt)).length,
+    followerSnapshots: workspace.followerSnapshots.length,
   };
 }
 
@@ -338,11 +439,36 @@ function createDemoState(): WorkspaceState {
   ];
 
   return {
-    schemaVersion: 13,
+    schemaVersion: 16,
+    designStyle: DEFAULT_DESIGN_STYLE,
+    navigationOrder: [...DEFAULT_NAVIGATION_ORDER],
     profile: { ...DEFAULT_CREATOR_PROFILE },
     pageTitles: { ...DEFAULT_PAGE_TITLES, goals: goal.objective },
     setupComplete: true,
     lastBackupAt: "",
+    inspirationCards: [
+      {
+        id: "inspiration-demo-1",
+        text: "测试三个 AI 工具完成同一个真实任务，看看谁的结果最能直接拿来用。",
+        createdAt: `${shiftDate(date, -1)}T10:00:00.000Z`,
+        updatedAt: `${shiftDate(date, -1)}T10:00:00.000Z`,
+        convertedContentIds: [],
+      },
+      {
+        id: "inspiration-demo-2",
+        text: "拍一期：我做这个创作者管理看板的真实原因，以及它怎样把零散创作变成稳定产线。",
+        createdAt: `${shiftDate(date, -3)}T15:30:00.000Z`,
+        updatedAt: `${shiftDate(date, -3)}T15:30:00.000Z`,
+        convertedContentIds: [],
+      },
+      {
+        id: "inspiration-demo-3",
+        text: "热点不一定要追新闻本身，可以把热点放进一个真实工作流里测试。",
+        createdAt: `${shiftDate(date, -6)}T09:20:00.000Z`,
+        updatedAt: `${shiftDate(date, -6)}T09:20:00.000Z`,
+        convertedContentIds: ["content-opening-test"],
+      },
+    ],
     contents,
     stageEvents: [
       { id: "event-ai-tools-script", contentId: "content-ai-tools", stage: "script", plannedDate: date, rank: 1, completedAt: "" },
@@ -416,6 +542,7 @@ function createBlankState(): WorkspaceState {
   const demo = createDemoState();
   return {
     ...demo,
+    inspirationCards: [],
     contents: [],
     stageEvents: [],
     reviewDays: [],
@@ -465,7 +592,7 @@ function EditablePageTitle({ value, fallback, onChange }: { value: string; fallb
 }
 
 function Icon({ name }: { name: string }) {
-  const icons: Record<string, string> = { momentum: "◫", schedule: "▤", pipeline: "▦", goals: "◎", review: "◌", settings: "⚙", plus: "＋", search: "⌕", spark: "✦", arrow: "→", backup: "⇩" };
+  const icons: Record<string, string> = { inspiration: "✣", momentum: "◫", schedule: "▤", pipeline: "▦", goals: "◎", review: "◌", settings: "⚙", plus: "＋", search: "⌕", spark: "✦", arrow: "→", backup: "⇩", version: "↻" };
   return <span aria-hidden="true" className="icon">{icons[name] ?? "·"}</span>;
 }
 
@@ -478,6 +605,10 @@ export default function Cockpit() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState<ColorTheme | null>(null);
   const [showStageColors, setShowStageColors] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showCreateContent, setShowCreateContent] = useState(false);
+  const [draggedNavId, setDraggedNavId] = useState<NavigationItemId | null>(null);
+  const [navDropTarget, setNavDropTarget] = useState<NavigationItemId | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<ContentDrawerTab>("overview");
   const [pipelineQuery, setPipelineQuery] = useState("");
@@ -485,14 +616,17 @@ export default function Cockpit() {
   const [toast, setToast] = useState("");
   const [aiResult, setAiResult] = useState<{ title: string; mode: "direct" | "prompt"; prompt: string; result?: { summary: string; signals: string[]; risks: string[]; nextActions: string[] } } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [importMode, setImportMode] = useState<"merge" | "replace">("merge");
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const workspaceTitle = dashboardTitle(state.profile);
 
   useEffect(() => {
     loadWorkspace()
       .then((stored) => {
-        if (stored) setState(stored);
+        if (stored) {
+          if (stored.designStyle !== "editorial") setTheme("light");
+          setState(stored);
+        }
         else setShowOnboarding(true);
       })
       .catch(() => setToast("本地数据读取失败，已先使用当前数据。"))
@@ -518,6 +652,13 @@ export default function Cockpit() {
       window.localStorage.setItem("creator-cockpit-theme", theme);
     } catch {}
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.style = state.designStyle;
+    try {
+      window.localStorage.setItem("creator-cockpit-style", state.designStyle);
+    } catch {}
+  }, [state.designStyle]);
 
   useEffect(() => {
     if (!hydrated || showOnboarding) return;
@@ -567,7 +708,37 @@ export default function Cockpit() {
   }
 
   function toggleTheme() {
+    if (state.designStyle !== "editorial") {
+      setToast("当前风格暂仅支持浅色模式");
+      return;
+    }
     setTheme((current) => current === "dark" ? "light" : "dark");
+  }
+
+  function updateDesignStyle(designStyle: DesignStyle) {
+    if (designStyle !== "editorial") setTheme("light");
+    setState((prev) => ({ ...prev, designStyle }));
+  }
+
+  function reorderNavigation(sourceId: NavigationItemId, targetId: NavigationItemId) {
+    if (sourceId === targetId) return;
+    setState((prev) => {
+      const sourceIndex = prev.navigationOrder.indexOf(sourceId);
+      const targetIndex = prev.navigationOrder.indexOf(targetId);
+      if (sourceIndex < 0 || targetIndex < 0) return prev;
+      const next = prev.navigationOrder.filter((id) => id !== sourceId);
+      const targetAfterRemoval = next.indexOf(targetId);
+      next.splice(sourceIndex < targetIndex ? targetAfterRemoval + 1 : targetAfterRemoval, 0, sourceId);
+      return { ...prev, navigationOrder: next };
+    });
+    setToast("侧边栏顺序已更新");
+  }
+
+  function moveNavigationBy(id: NavigationItemId, offset: -1 | 1) {
+    const currentIndex = state.navigationOrder.indexOf(id);
+    const targetId = state.navigationOrder[currentIndex + offset];
+    if (!targetId) return;
+    reorderNavigation(id, targetId);
   }
 
   function openContent(id: string, tab: ContentDrawerTab = "overview") {
@@ -576,7 +747,7 @@ export default function Cockpit() {
   }
 
   function deleteContent(item: ContentItem) {
-    const confirmed = window.confirm(`确定永久删除「${item.title}」吗？\n\n它会同时从今日 Todo、档期、阶段目标统计和复盘中移除，且无法恢复。`);
+    const confirmed = window.confirm(`确定永久删除「${item.title}」吗？\n\n它会同时从今日 Todo、档期、大目标统计和复盘中移除，且无法恢复。`);
     if (!confirmed) return;
     setState((prev) => deleteContentFromWorkspace(prev, item.id));
     setSelectedId(null);
@@ -593,10 +764,76 @@ export default function Cockpit() {
     });
   }
 
-  function createContentAndOpen() {
+  function createBlankContent() {
     const item = createContent({ id: crypto.randomUUID(), title: "未命名内容", createdAt: todayISO(), updatedAt: todayISO() });
     setState((prev) => ({ ...prev, contents: [item, ...prev.contents] }));
+    setShowCreateContent(false);
     openContent(item.id);
+  }
+
+  function openCreateContent() {
+    setShowCreateContent(true);
+  }
+
+  function createContentFromInspiration(inspiration: InspirationCard) {
+    const item = createContent({
+      id: crypto.randomUUID(),
+      title: titleFromInspiration(inspiration.text),
+      idea: inspiration.text,
+      stage: "topic",
+      createdAt: todayISO(),
+      updatedAt: todayISO(),
+    });
+    setState((prev) => ({
+      ...prev,
+      inspirationCards: prev.inspirationCards.map((card) => card.id === inspiration.id
+        ? {
+            ...card,
+            convertedContentIds: Array.from(new Set([...card.convertedContentIds, item.id])),
+            updatedAt: new Date().toISOString(),
+          }
+        : card),
+      contents: [item, ...prev.contents],
+    }));
+    setShowCreateContent(false);
+    openContent(item.id, "topic");
+    setToast("已从灵感创建内容，并进入大纲阶段");
+  }
+
+  function addInspiration(text: string) {
+    const normalized = text.trim();
+    if (!normalized) return;
+    const now = new Date().toISOString();
+    const card: InspirationCard = {
+      id: crypto.randomUUID(),
+      text: normalized,
+      createdAt: now,
+      updatedAt: now,
+      convertedContentIds: [],
+    };
+    setState((prev) => ({ ...prev, inspirationCards: [card, ...prev.inspirationCards] }));
+    setToast("灵感已存入灵感池");
+  }
+
+  function updateInspiration(id: string, text: string) {
+    const normalized = text.trim();
+    if (!normalized) return;
+    setState((prev) => ({
+      ...prev,
+      inspirationCards: prev.inspirationCards.map((card) => card.id === id
+        ? { ...card, text: normalized, updatedAt: new Date().toISOString() }
+        : card),
+    }));
+    setToast("灵感已更新");
+  }
+
+  function removeInspiration(inspiration: InspirationCard) {
+    if (!window.confirm("确定删除这张灵感卡片吗？已由它创建的内容不会受到影响。")) return;
+    setState((prev) => ({
+      ...prev,
+      inspirationCards: prev.inspirationCards.filter((card) => card.id !== inspiration.id),
+    }));
+    setToast("灵感卡片已删除");
   }
 
   function addToToday(id: string) {
@@ -889,16 +1126,27 @@ export default function Cockpit() {
     try {
       const parsed = JSON.parse(await file.text()) as unknown;
       if (!validateImport(parsed)) throw new Error("invalid");
-      if (importMode === "replace" && !window.confirm("覆盖会替换当前全部数据，确定继续吗？")) return;
       const restored = migrateWorkspace(parsed);
       if (!restored) throw new Error("invalid");
-      setState(importMode === "merge" ? mergeWorkspace(state, restored) : restored);
-      setToast(importMode === "merge" ? "数据已合并" : "数据已恢复");
+      setImportPreview({
+        fileName: file.name,
+        sourceSchemaVersion: Number((parsed as { schemaVersion?: number }).schemaVersion ?? 0),
+        workspace: restored,
+      });
     } catch {
       setToast("无法识别这个备份文件");
     } finally {
       event.target.value = "";
     }
+  }
+
+  function applyImport(mode: "merge" | "replace") {
+    if (!importPreview) return;
+    const next = mode === "merge" ? mergeWorkspace(state, importPreview.workspace) : importPreview.workspace;
+    if (next.designStyle !== "editorial") setTheme("light");
+    setState(next);
+    setImportPreview(null);
+    setToast(mode === "merge" ? "备份数据已合并" : "工作台已从备份完整恢复");
   }
 
   function startWorkspace(mode: "demo" | "blank", profile: CreatorProfile) {
@@ -908,13 +1156,9 @@ export default function Cockpit() {
     setHydrated(true);
   }
 
-  const nav = [
-    { id: "momentum" as const, label: "推进", icon: "momentum" },
-    { id: "schedule" as const, label: "档期规划", icon: "schedule" },
-    { id: "pipeline" as const, label: "内容管线", icon: "pipeline" },
-    { id: "goals" as const, label: "大目标（阶段）", icon: "goals" },
-    { id: "review" as const, label: "复盘实验室", icon: "review" },
-  ];
+  const nav = state.navigationOrder
+    .map((id) => NAV_ITEMS.find((item) => item.id === id))
+    .filter((item): item is (typeof NAV_ITEMS)[number] => Boolean(item));
 
   return (
     <div className={sidebarCollapsed ? "cockpit-shell sidebar-collapsed" : "cockpit-shell"}>
@@ -930,15 +1174,48 @@ export default function Cockpit() {
         </button>
         <nav aria-label="主导航">
           <div className="nav-section-label">工作台</div>
-          {nav.map((item) => <button key={item.id} className={view === item.id ? "nav-item active" : "nav-item"} onClick={() => setView(item.id)} aria-label={item.label} title={sidebarCollapsed ? item.label : undefined}><Icon name={item.icon} /><span>{item.label}</span>{item.id === "review" && reviewDue.length > 0 ? <em>{reviewDue.length}</em> : null}</button>)}
+          {nav.map((item) => <button
+            key={item.id}
+            draggable
+            className={`nav-item${view === item.id ? " active" : ""}${draggedNavId === item.id ? " dragging" : ""}${navDropTarget === item.id && draggedNavId !== item.id ? " drop-target" : ""}`}
+            onClick={() => setView(item.id)}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", item.id);
+              setDraggedNavId(item.id);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              setNavDropTarget(item.id);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              const sourceId = (event.dataTransfer.getData("text/plain") || draggedNavId) as NavigationItemId;
+              if (state.navigationOrder.includes(sourceId)) reorderNavigation(sourceId, item.id);
+              setDraggedNavId(null);
+              setNavDropTarget(null);
+            }}
+            onDragEnd={() => {
+              setDraggedNavId(null);
+              setNavDropTarget(null);
+            }}
+            onKeyDown={(event) => {
+              if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+              event.preventDefault();
+              moveNavigationBy(item.id, event.key === "ArrowUp" ? -1 : 1);
+            }}
+            aria-label={`${item.label}，可拖动调整顺序`}
+            title={sidebarCollapsed ? item.label : "拖动调整顺序；Alt + ↑/↓ 也可移动"}
+          ><Icon name={item.icon} /><span>{item.label}</span>{item.id === "review" && reviewDue.length > 0 ? <em>{reviewDue.length}</em> : null}<span className="nav-drag-handle" aria-hidden="true">⠿</span></button>)}
         </nav>
         <div className="sidebar-bottom">
           <button className={view === "settings" ? "nav-item active" : "nav-item"} onClick={() => setView("settings")} aria-label="设置与备份" title={sidebarCollapsed ? "设置与备份" : undefined}><Icon name="settings" /><span>设置与备份</span></button>
-          <div className="quarter-mini"><div><span>当前阶段进度</span><strong>{percent(health.timeProgress)}</strong></div><ProgressBar value={health.timeProgress} /><small>{health.weeksRemaining} 周后结束 · 本机自动保存</small></div>
-          <button className="theme-toggle" onClick={toggleTheme} aria-label={`切换为${theme === "dark" ? "浅色" : "深色"}模式`} aria-pressed={theme === "dark"} title={sidebarCollapsed ? (theme === "dark" ? "浅色模式" : "深色模式") : undefined}>
-            <span className="theme-toggle-icon" aria-hidden="true">{theme === "dark" ? "☀" : "◐"}</span>
-            <span className="theme-toggle-label">{theme === "dark" ? "浅色模式" : "深色模式"}</span>
-            <span className="theme-toggle-switch" aria-hidden="true"><i /></span>
+          <div className="quarter-mini"><div><span>当前目标进度</span><strong>{percent(health.timeProgress)}</strong></div><ProgressBar value={health.timeProgress} /><small>{health.weeksRemaining} 周后结束 · 本机自动保存</small></div>
+          <button className="version-entry" onClick={() => setShowVersionHistory(true)} aria-label={`当前版本 ${APP_VERSION}，查看版本记录`} title={sidebarCollapsed ? `v${APP_VERSION}` : undefined}>
+            <Icon name="version" />
+            <span><small>当前版本</small><strong>v{APP_VERSION}</strong></span>
+            <em>版本记录</em>
           </button>
         </div>
       </aside>
@@ -947,10 +1224,11 @@ export default function Cockpit() {
         <header className="topbar">
           <div className="mobile-brand"><span className="brand-mark">{creatorMark(state.profile)}</span><strong>{workspaceTitle}</strong></div>
           <div className="topbar-date"><span>{new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "long", day: "numeric", weekday: "long" }).format(new Date())}</span><small>目标第 {Math.max(1, Math.ceil(((new Date().getTime() - new Date(`${state.goal.startDate}T12:00:00`).getTime()) / 86_400_000 + 1) / 7))} 周</small></div>
-          <div className="topbar-actions"><button className="ghost-button mobile-theme-toggle" onClick={toggleTheme} aria-label={`切换为${theme === "dark" ? "浅色" : "深色"}模式`} aria-pressed={theme === "dark"}><span aria-hidden="true">{theme === "dark" ? "☀" : "◐"}</span></button><button className="ghost-button search-button" onClick={() => { setView("pipeline"); setTimeout(() => document.getElementById("pipeline-search")?.focus(), 0); }}><Icon name="search" />搜索内容</button><button className="primary-button" onClick={createContentAndOpen}><Icon name="plus" />新建内容</button></div>
+          <div className="topbar-actions"><button className="ghost-button topbar-theme-toggle" onClick={toggleTheme} disabled={state.designStyle !== "editorial"} aria-label={state.designStyle === "editorial" ? `切换为${theme === "dark" ? "浅色" : "深色"}模式` : "当前风格暂仅支持浅色模式"} aria-pressed={theme === "dark"} title={state.designStyle === "editorial" ? (theme === "dark" ? "切换为浅色模式" : "切换为深色模式") : "当前风格暂仅支持浅色模式"}><span aria-hidden="true">{theme === "dark" ? "☀" : "◐"}</span></button><button className="primary-button" onClick={openCreateContent}><Icon name="plus" />新建内容</button></div>
         </header>
 
         <div className="page-scroll">
+          {view === "inspirations" ? <InspirationPoolView state={state} pageTitle={state.pageTitles.inspirations} updateTitle={(value) => updatePageTitle("inspirations", value)} add={addInspiration} update={updateInspiration} createContent={createContentFromInspiration} remove={removeInspiration} openContent={openContent} /> : null}
           {view === "momentum" ? (
             <section className="page momentum-page">
               <div className="page-heading split-heading"><div><span className="eyebrow">MOMENTUM</span><EditablePageTitle value={state.pageTitles[momentumPeriod]} fallback={DEFAULT_PAGE_TITLES[momentumPeriod]} onChange={(value) => updatePageTitle(momentumPeriod, value)} /><p>{momentumPeriod === "today" ? "今日 Todo 自动读取档期；一个任务就是一条内容的一个大阶段。" : "本周总览自动汇总档期，不需要再维护一份周计划。"}</p></div><div className="period-switch momentum-period-switch" role="tablist" aria-label="推进时间范围"><button className={momentumPeriod === "today" ? "active" : ""} onClick={() => setMomentumPeriod("today")} role="tab" aria-selected={momentumPeriod === "today"}>今日</button><button className={momentumPeriod === "week" ? "active" : ""} onClick={() => setMomentumPeriod("week")} role="tab" aria-selected={momentumPeriod === "week"}>本周</button></div></div>
@@ -959,21 +1237,161 @@ export default function Cockpit() {
           ) : null}
 
           {view === "schedule" ? <section className="page momentum-page"><div className="page-heading"><span className="eyebrow">PRODUCTION SCHEDULE</span><EditablePageTitle value={state.pageTitles.schedule} fallback={DEFAULT_PAGE_TITLES.schedule} onChange={(value) => updatePageTitle("schedule", value)} /><p>安排内容阶段，也可以放入复盘、直播和你自定义的日程对象。</p></div><ScheduleView state={state} open={openContent} openReview={() => setView("review")} schedule={planStage} moveEvent={moveCalendarEvent} unschedule={clearStagePlan} createReviewDay={createReviewDay} moveReviewDay={moveReviewDay} removeReviewDay={deleteReviewDay} saveLive={saveLiveSession} moveLive={moveLiveSession} removeLive={deleteLiveSession} saveObjectType={saveScheduleObjectType} archiveObjectType={archiveScheduleObjectType} removeObjectType={deleteScheduleObjectType} saveObject={saveScheduleObject} moveObject={moveScheduleObject} removeObject={deleteScheduleObject} configureColors={() => setShowStageColors(true)} /></section> : null}
-          {view === "pipeline" ? <PipelineView state={state} pageTitle={state.pageTitles.pipeline} updateTitle={(value) => updatePageTitle("pipeline", value)} query={pipelineQuery} setQuery={setPipelineQuery} type={pipelineType} setType={setPipelineType} open={openContent} addToday={addToToday} dropStage={onDropStage} create={createContentAndOpen} /> : null}
+          {view === "pipeline" ? <ContentOverviewView state={state} pageTitle={state.pageTitles.pipeline} updateTitle={(value) => updatePageTitle("pipeline", value)} query={pipelineQuery} setQuery={setPipelineQuery} type={pipelineType} setType={setPipelineType} open={openContent} addToday={addToToday} dropStage={onDropStage} /> : null}
           {view === "goals" ? <GoalsView state={state} pageTitle={state.pageTitles.goals} updateTitle={(value) => updatePageTitle("goals", value)} health={health} followers={followers} published={publishedQuarter} updateGoal={updateGoal} setState={setState} /> : null}
           {view === "review" ? <ReviewView state={state} pageTitle={state.pageTitles.review} updateTitle={(value) => updatePageTitle("review", value)} open={(id) => openContent(id, "review")} setState={setState} /> : null}
-          {view === "settings" ? <SettingsView state={state} pageTitle={state.pageTitles.settings} updateTitle={(value) => updatePageTitle("settings", value)} setState={setState} exportData={exportData} fileInput={fileInput} importData={importData} importMode={importMode} setImportMode={setImportMode} onReset={async () => { if (window.confirm("确定清空全部内容与目标数据吗？个人设置会保留，请先导出备份。")) { await clearWorkspace(); setState({ ...createBlankState(), profile: state.profile, pageTitles: state.pageTitles }); setToast("已清空内容与目标，个人设置已保留"); } }} /> : null}
+          {view === "settings" ? <SettingsView state={state} pageTitle={state.pageTitles.settings} updateTitle={(value) => updatePageTitle("settings", value)} updateDesignStyle={updateDesignStyle} setState={setState} exportData={exportData} fileInput={fileInput} importData={importData} onReset={async () => { if (window.confirm("确定清空全部内容与目标数据吗？个人设置会保留，请先导出备份。")) { await clearWorkspace(); setState({ ...createBlankState(), designStyle: state.designStyle, navigationOrder: state.navigationOrder, profile: state.profile, pageTitles: state.pageTitles }); setToast("已清空内容与目标，个人设置已保留"); } }} /> : null}
         </div>
       </main>
 
       <nav className="mobile-nav" aria-label="移动端导航">{nav.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><Icon name={item.icon} /><span>{item.label}</span></button>)}</nav>
+      {showCreateContent ? <CreateContentModal inspirationCards={state.inspirationCards} close={() => setShowCreateContent(false)} createBlank={createBlankContent} createFromInspiration={createContentFromInspiration} openInspirationPool={() => { setShowCreateContent(false); setView("inspirations"); }} /> : null}
       {selected ? <ContentDrawer item={selected} initialTab={selectedTab} stageEvents={state.stageEvents} stageColors={state.stageColors} contentTypes={state.contentTypes} close={() => setSelectedId(null)} update={(patch) => updateContent(selected.id, patch)} changeStage={(stage) => setState((prev) => transitionContentStage(prev, selected.id, stage, date))} setStageStatus={(stage, completed) => setStageStatus(selected.id, stage, completed)} schedule={(stage, plannedDate) => planStage(selected.id, stage, plannedDate)} unschedule={(stage) => clearStagePlan(selected.id, stage)} remove={() => deleteContent(selected)} markPublished={() => markPublished(selected)} unmarkPublished={() => unmarkPublished(selected)} saveReview={() => saveReview(selected)} analyze={(kind, payload, title) => analyze(kind, payload, title)} aiLoading={aiLoading} ruleDeposited={Boolean(selected.review.learnedRule.trim() && state.insightRules.some((rule) => rule.sourceContentId === selected.id && rule.text === selected.review.learnedRule.trim()))} addRule={(text) => { const normalized = text.trim(); if (!normalized) return; setState((prev) => { const existing = prev.insightRules.find((rule) => rule.sourceContentId === selected.id && rule.text === normalized); if (existing) return { ...prev, insightRules: prev.insightRules.map((rule) => rule.id === existing.id ? { ...rule, active: true } : rule) }; const rule: InsightRule = { id: crypto.randomUUID(), text: normalized, sourceContentId: selected.id, createdAt: todayISO(), active: true }; return { ...prev, insightRules: [rule, ...prev.insightRules] }; }); setToast("已沉淀为内容规则"); }} /> : null}
       {showStageColors ? <StageColorModal colors={state.stageColors} close={() => setShowStageColors(false)} update={(stage, color) => setState((prev) => ({ ...prev, stageColors: { ...prev.stageColors, [stage]: color.toUpperCase() } }))} reset={() => setState((prev) => ({ ...prev, stageColors: { ...DEFAULT_STAGE_COLORS } }))} /> : null}
+      {showVersionHistory ? <VersionHistoryModal close={() => setShowVersionHistory(false)} exportData={exportData} /> : null}
+      {importPreview ? <ImportPreviewModal preview={importPreview} current={state} close={() => setImportPreview(null)} apply={applyImport} /> : null}
       {aiResult ? <AiModal result={aiResult} close={() => setAiResult(null)} copy={copyText} /> : null}
       {showOnboarding ? <Onboarding start={startWorkspace} /> : null}
       {toast ? <div className="toast" role="status">{toast}</div> : null}
     </div>
   );
+}
+
+function InspirationPoolView({ state, pageTitle, updateTitle, add, update, createContent, remove, openContent }: {
+  state: WorkspaceState;
+  pageTitle: string;
+  updateTitle: (value: string) => void;
+  add: (text: string) => void;
+  update: (id: string, text: string) => void;
+  createContent: (inspiration: InspirationCard) => void;
+  remove: (inspiration: InspirationCard) => void;
+  openContent: (id: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const cards = [...state.inspirationCards].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const selectedCard = cards.find((card) => card.id === selectedCardId) ?? null;
+  const save = () => {
+    if (!draft.trim()) return;
+    add(draft);
+    setDraft("");
+  };
+  return <section className="page inspiration-page">
+    <div className="page-heading"><span className="eyebrow">INSPIRATION POOL</span><EditablePageTitle value={pageTitle} fallback={DEFAULT_PAGE_TITLES.inspirations} onChange={updateTitle} /><p>灵感只是等待判断的想法，不计入内容、目标或复盘；决定要做时，再把它转成一条内容。</p></div>
+    <div className="inspiration-workspace">
+      <section className="panel inspiration-composer">
+        <div className="inspiration-composer-heading"><span className="eyebrow">QUICK CAPTURE</span><h2>想到什么，先放进来</h2><p>不需要分类，也不用现在决定怎么拍。这里可以写下一段完整的场景、观点或内容雏形。</p></div>
+        <label>
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") save();
+            }}
+            placeholder={"写下一段灵感……\n\n可以是一个具体场景、一句反常识观点，或者一条还没有想完整的内容方向。"}
+          />
+        </label>
+        <footer><span>⌘ / Ctrl + Enter 保存</span><button className="primary-button" disabled={!draft.trim()} onClick={save}>存入灵感池</button></footer>
+      </section>
+      <section className="panel inspiration-wall">
+        <header className="inspiration-wall-heading"><div><span className="eyebrow">IDEA WALL</span><h2>灵感墙</h2><p>最新记录在最前面，决定投入后再转为正式内容。</p></div><span className="inspiration-count">{cards.length}<small> 张卡片</small></span></header>
+        {cards.length ? <div className="inspiration-grid">{cards.map((card, index) => {
+          const converted = card.convertedContentIds
+            .map((contentId) => state.contents.find((item) => item.id === contentId))
+            .filter((item): item is ContentItem => Boolean(item));
+          return <article className="inspiration-card" key={card.id}>
+            <button type="button" className="inspiration-card-open" onClick={() => setSelectedCardId(card.id)} aria-label={`查看并编辑灵感：${card.text.slice(0, 30)}`}>
+              <header><span>IDEA {String(cards.length - index).padStart(2, "0")}</span><time>{card.createdAt.slice(0, 10)}</time></header>
+              <p>{card.text}</p>
+            </button>
+            <div className="inspiration-card-status">
+              {converted.length ? <div className="inspiration-converted"><span>已转为 {converted.length} 条内容</span>{converted.slice(0, 2).map((item) => <button key={item.id} onClick={() => openContent(item.id)}>{item.title}</button>)}</div> : <span className="inspiration-unselected">尚未转为内容</span>}
+            </div>
+            <footer><button className="text-button inspiration-delete" onClick={() => remove(card)}>删除</button><button className="secondary-button" onClick={() => createContent(card)}>{converted.length ? "再次创建内容" : "转为内容"}</button></footer>
+          </article>;
+        })}</div> : <Empty title="灵感墙还是空的" body="先在左边写下一段想法。它不会立刻变成内容，也不会影响你的内容统计。" />}
+      </section>
+    </div>
+    {selectedCard ? <InspirationDetailModal card={selectedCard} close={() => setSelectedCardId(null)} save={(text) => { update(selectedCard.id, text); setSelectedCardId(null); }} /> : null}
+  </section>;
+}
+
+function InspirationDetailModal({ card, close, save }: { card: InspirationCard; close: () => void; save: (text: string) => void }) {
+  const [text, setText] = useState(card.text);
+  const changed = text.trim() !== card.text.trim();
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
+    <section className="inspiration-detail-modal" role="dialog" aria-modal="true" aria-labelledby="inspiration-detail-title">
+      <header><div><span className="eyebrow">IDEA DETAIL</span><h2 id="inspiration-detail-title">灵感详情</h2><p>创建于 {card.createdAt.slice(0, 10)}{card.updatedAt !== card.createdAt ? ` · 最近修改 ${card.updatedAt.slice(0, 10)}` : ""}</p></div><button className="close-button" onClick={close} aria-label="关闭灵感详情">×</button></header>
+      <div className="inspiration-detail-body">
+        <label className="field"><span>灵感文字</span><textarea autoFocus value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && text.trim() && changed) save(text); }} /></label>
+        <div><span>{text.trim().length} 字</span><span>⌘ / Ctrl + Enter 保存</span></div>
+      </div>
+      <footer><button className="text-button" onClick={close}>取消</button><button className="primary-button" disabled={!text.trim() || !changed} onClick={() => save(text)}>保存修改</button></footer>
+    </section>
+  </div>;
+}
+
+function CreateContentModal({ inspirationCards, close, createBlank, createFromInspiration, openInspirationPool }: {
+  inspirationCards: InspirationCard[];
+  close: () => void;
+  createBlank: () => void;
+  createFromInspiration: (inspiration: InspirationCard) => void;
+  openInspirationPool: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const cards = [...inspirationCards]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .filter((card) => card.text.toLowerCase().includes(query.trim().toLowerCase()));
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
+    <section className="create-content-modal" role="dialog" aria-modal="true" aria-labelledby="create-content-title">
+      <header><div><span className="eyebrow">NEW CONTENT</span><h2 id="create-content-title">新建内容</h2><p>从已有灵感开始，或创建一条空白内容。</p></div><button className="close-button" onClick={close} aria-label="关闭新建内容">×</button></header>
+      <button className="create-blank-option" onClick={createBlank}><span>＋</span><div><strong>创建空白内容</strong><small>从“灵感”阶段开始，稍后再补充详情。</small></div><em>→</em></button>
+      <section className="create-from-inspiration">
+        <div className="create-section-heading"><div><span>从灵感池选择</span><small>选择后会带入原始想法，并直接进入大纲阶段。</small></div>{inspirationCards.length ? <label className="search-field"><Icon name="search" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索灵感" /></label> : null}</div>
+        {cards.length ? <div className="create-inspiration-list">{cards.map((card) => <button key={card.id} onClick={() => createFromInspiration(card)}><span>{card.text}</span><small>{card.createdAt.slice(0, 10)}</small><em>选择</em></button>)}</div> : inspirationCards.length ? <p className="create-empty-copy">没有匹配的灵感。</p> : <div className="create-empty-copy"><p>灵感池还是空的。</p><button className="text-button" onClick={openInspirationPool}>先去记录灵感 →</button></div>}
+      </section>
+    </section>
+  </div>;
+}
+
+function VersionHistoryModal({ close, exportData }: { close: () => void; exportData: () => void }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
+    <section className="version-modal" role="dialog" aria-modal="true" aria-labelledby="version-history-title">
+      <header><div><span className="eyebrow">RELEASE NOTES</span><h2 id="version-history-title">版本迭代记录</h2><p>当前版本 v{APP_VERSION}</p></div><button className="close-button" onClick={close} aria-label="关闭版本记录">×</button></header>
+      <div className="update-safety-note"><Icon name="backup" /><div><strong>准备更新前，先导出一份完整备份</strong><p>Skill 更新的是本地代码，不会把浏览器里的数据上传或同步到别处。保持同一浏览器与 localhost:3000，旧数据会在新版中自动迁移。</p></div><button className="secondary-button" onClick={exportData}>导出备份</button></div>
+      <div className="version-timeline">{VERSION_HISTORY.map((entry, index) => <article key={entry.version} className={index === 0 ? "current" : ""}><div className="version-marker"><i /><span>v{entry.version}</span></div><div><header><div><strong>{entry.title}</strong><time>{entry.date}</time></div>{index === 0 ? <em>当前版本</em> : null}</header><ul>{entry.changes.map((change) => <li key={change}>{change}</li>)}</ul></div></article>)}</div>
+      <footer><button className="secondary-button" onClick={close}>关闭</button></footer>
+    </section>
+  </div>;
+}
+
+function ImportPreviewModal({ preview, current, close, apply }: {
+  preview: ImportPreview;
+  current: WorkspaceState;
+  close: () => void;
+  apply: (mode: "merge" | "replace") => void;
+}) {
+  const incomingSummary = importSummary(preview.workspace);
+  const currentSummary = importSummary(current);
+  const metrics = [
+    ["灵感", incomingSummary.inspirations, currentSummary.inspirations],
+    ["内容", incomingSummary.contents, currentSummary.contents],
+    ["档期", incomingSummary.schedules, currentSummary.schedules],
+    ["已复盘", incomingSummary.reviews, currentSummary.reviews],
+    ["粉丝快照", incomingSummary.followerSnapshots, currentSummary.followerSnapshots],
+  ] as const;
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
+    <section className="import-preview-modal" role="dialog" aria-modal="true" aria-labelledby="import-preview-title">
+      <header><div><span className="eyebrow">IMPORT PREVIEW</span><h2 id="import-preview-title">确认要导入的备份</h2><p>{preview.fileName} · 数据版本 {preview.sourceSchemaVersion}</p></div><button className="close-button" onClick={close} aria-label="关闭导入预览">×</button></header>
+      <div className="import-summary-grid">{metrics.map(([label, incoming, existing]) => <article key={label}><span>{label}</span><strong>{incoming}</strong><small>当前 {existing}</small></article>)}</div>
+      <div className="import-mode-options">
+        <button onClick={() => apply("merge")}><span>推荐</span><strong>合并导入</strong><p>保留当前个人设置；相同 ID 的记录使用备份版本，其余记录合并保留。</p></button>
+        <button className="replace" onClick={() => apply("replace")}><span>完整恢复</span><strong>覆盖当前工作台</strong><p>用这份备份替换当前全部设置与数据，适合换设备或完整回退。</p></button>
+      </div>
+      <footer><button className="text-button" onClick={close}>取消</button></footer>
+    </section>
+  </div>;
 }
 
 function TodoCard({ entry, index, overdue = false, stageColors, open, openSchedule, moveToday, toggleComplete, removeFromToday }: {
@@ -1516,7 +1934,7 @@ function LiveSessionModal({ session, type, update, close, save, remove }: {
   const patch = (value: Partial<LiveSession>) => update({ ...session, ...value });
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
     <section className="live-session-modal schedule-object-modal" role="dialog" aria-modal="true" aria-labelledby="live-session-title" style={{ "--event-color": type.color } as React.CSSProperties}>
-      <header><div><span className="eyebrow">LIVE SCHEDULE</span><h2 id="live-session-title">{remove ? `编辑${type.name}日程` : `创建${type.name}日程`}</h2><p>{type.name}是独立于内容管线的日程对象，可以随时拖动改期。</p></div><button className="close-button" onClick={close} aria-label={`关闭${type.name}日程`}>×</button></header>
+      <header><div><span className="eyebrow">LIVE SCHEDULE</span><h2 id="live-session-title">{remove ? `编辑${type.name}日程` : `创建${type.name}日程`}</h2><p>{type.name}是独立于内容总览的日程对象，可以随时拖动改期。</p></div><button className="close-button" onClick={close} aria-label={`关闭${type.name}日程`}>×</button></header>
       <div className="live-session-form">
         <label className="field full"><span>{type.name}主题</span><input autoFocus value={session.title} onChange={(event) => patch({ title: event.target.value })} placeholder="例如：AI 工具实战答疑" /></label>
         <div className="form-grid">
@@ -1543,7 +1961,7 @@ function ScheduleObjectModal({ object, type, update, close, save, remove }: {
   const patch = (value: Partial<ScheduleObject>) => update({ ...object, ...value });
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
     <section className="live-session-modal schedule-object-modal" role="dialog" aria-modal="true" aria-labelledby="schedule-object-title" style={{ "--event-color": type?.color || "#6C7A72" } as React.CSSProperties}>
-      <header><div><span className="eyebrow">CUSTOM SCHEDULE</span><h2 id="schedule-object-title">{remove ? `编辑${type?.name || "日程"}` : `创建${type?.name || "日程"}`}</h2><p>这是独立于内容管线的日程，保存后仍可在日历中拖动改期。</p></div><button className="close-button" onClick={close} aria-label="关闭自定义日程">×</button></header>
+      <header><div><span className="eyebrow">CUSTOM SCHEDULE</span><h2 id="schedule-object-title">{remove ? `编辑${type?.name || "日程"}` : `创建${type?.name || "日程"}`}</h2><p>这是独立于内容总览的日程，保存后仍可在日历中拖动改期。</p></div><button className="close-button" onClick={close} aria-label="关闭自定义日程">×</button></header>
       <div className="live-session-form">
         <div className="schedule-object-type-badge"><i />{type?.name || "自定义日程"}</div>
         <label className="field full"><span>标题</span><input autoFocus value={object.title} onChange={(event) => patch({ title: event.target.value })} placeholder={`例如：${type?.name || "线下活动"}`} /></label>
@@ -1635,7 +2053,7 @@ function StageColorModal({ colors, close, update, reset }: {
 }) {
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
     <section className="stage-color-modal" role="dialog" aria-modal="true" aria-labelledby="stage-color-title">
-      <header><div><span className="eyebrow">STAGE COLORS</span><h2 id="stage-color-title">阶段配色</h2><p>修改后会同步到内容阶段、档期日历、今日 Todo 和内容管线。</p></div><button className="close-button" onClick={close} aria-label="关闭阶段配色">×</button></header>
+      <header><div><span className="eyebrow">STAGE COLORS</span><h2 id="stage-color-title">阶段配色</h2><p>修改后会同步到内容阶段、档期日历、今日 Todo 和内容总览。</p></div><button className="close-button" onClick={close} aria-label="关闭阶段配色">×</button></header>
       <div className="stage-color-grid">{CONTENT_STAGES.map((stage) => <label key={stage} style={{ "--stage-color": colors[stage] } as React.CSSProperties}>
         <span className="stage-color-preview"><i /></span>
         <strong>{STAGE_LABELS[stage]}</strong>
@@ -1647,14 +2065,54 @@ function StageColorModal({ colors, close, update, reset }: {
   </div>;
 }
 
-function PipelineView({ state, pageTitle, updateTitle, query, setQuery, type, setType, open, addToday, dropStage, create }: { state: WorkspaceState; pageTitle: string; updateTitle: (value: string) => void; query: string; setQuery: (value: string) => void; type: string; setType: (value: string) => void; open: (id: string) => void; addToday: (id: string) => void; dropStage: (event: DragEvent, stage: ContentStage) => void; create: () => void }) {
+function ContentOverviewView({ state, pageTitle, updateTitle, query, setQuery, type, setType, open, addToday, dropStage }: { state: WorkspaceState; pageTitle: string; updateTitle: (value: string) => void; query: string; setQuery: (value: string) => void; type: string; setType: (value: string) => void; open: (id: string) => void; addToday: (id: string) => void; dropStage: (event: DragEvent, stage: ContentStage) => void }) {
+  const [mode, setMode] = useState<"pipeline" | "list">("pipeline");
+  const [stageFilter, setStageFilter] = useState("全部阶段");
+  const [tierFilter, setTierFilter] = useState("全部档位");
+  const [priorityFilter, setPriorityFilter] = useState("全部优先级");
+  const [statusFilter, setStatusFilter] = useState("全部状态");
   const stages = CONTENT_STAGES;
-  const filtered = state.contents.filter((item) => (type === "全部类型" || item.contentType === type) && `${item.title} ${item.idea} ${item.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
+  const baseFiltered = state.contents.filter((item) =>
+    (type === "全部类型" || item.contentType === type)
+    && `${item.title} ${item.idea} ${item.tags.join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+  const filtered = baseFiltered.filter((item) =>
+    (stageFilter === "全部阶段" || item.stage === stageFilter)
+    && (tierFilter === "全部档位" || item.tier === tierFilter)
+    && (priorityFilter === "全部优先级" || item.priority === priorityFilter)
+    && (statusFilter === "全部状态" || item.publicationStatus === statusFilter),
+  );
+  const hasExtraFilters = stageFilter !== "全部阶段" || tierFilter !== "全部档位" || priorityFilter !== "全部优先级" || statusFilter !== "全部状态";
+  const clearFilters = () => {
+    setQuery("");
+    setType("全部类型");
+    setStageFilter("全部阶段");
+    setTierFilter("全部档位");
+    setPriorityFilter("全部优先级");
+    setStatusFilter("全部状态");
+  };
+  const priorityLabels = { high: "高", normal: "普通", low: "低" };
+  const statusLabels = { draft: "未排期", scheduled: "已排期", published: "已发布" };
+  const nextPlannedFor = (contentId: string) => state.stageEvents
+    .filter((event) => event.contentId === contentId && !event.completedAt)
+    .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate) || a.rank - b.rank)[0];
   return <section className="page pipeline-page">
-    <div className="page-heading split-heading"><div><span className="eyebrow">CONTENT PIPELINE</span><EditablePageTitle value={pageTitle} fallback={DEFAULT_PAGE_TITLES.pipeline} onChange={updateTitle} /><p>这里保存全局当前阶段。阶段排期在档期规划与内容详情之间同步，今天到期的阶段会自动进入 Todo。</p></div><button className="primary-button" onClick={create}><Icon name="plus" />新建内容</button></div>
-    <div className="pipeline-toolbar"><label className="search-field"><Icon name="search" /><input id="pipeline-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索标题、idea 或标签" /></label><select value={type} onChange={(e) => setType(e.target.value)}><option>全部类型</option>{state.contentTypes.map((item) => <option key={item}>{item}</option>)}</select><span>{filtered.length} 条内容</span></div>
-    <div className="kanban">{stages.map((stage) => {
-      const items = filtered.filter((item) => item.stage === stage);
+    <div className="page-heading"><span className="eyebrow">CONTENT OVERVIEW</span><EditablePageTitle value={pageTitle} fallback={DEFAULT_PAGE_TITLES.pipeline} onChange={updateTitle} /><p>在流程中推动阶段，在列表中快速搜索、筛选和查看全部内容。</p></div>
+    <div className="content-overview-tabs" role="tablist" aria-label="内容总览显示方式"><button className={mode === "pipeline" ? "active" : ""} onClick={() => setMode("pipeline")} role="tab" aria-selected={mode === "pipeline"}><span>流程</span><small>Pipeline</small></button><button className={mode === "list" ? "active" : ""} onClick={() => setMode("list")} role="tab" aria-selected={mode === "list"}><span>列表</span><small>List</small></button></div>
+    <div className={`pipeline-toolbar ${mode === "list" ? "list-toolbar" : ""}`}>
+      <label className="search-field"><Icon name="search" /><input id="content-overview-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索标题、原始想法或标签" /></label>
+      <select value={type} onChange={(e) => setType(e.target.value)}><option>全部类型</option>{state.contentTypes.map((item) => <option key={item}>{item}</option>)}</select>
+      {mode === "list" ? <>
+        <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}><option>全部阶段</option>{CONTENT_STAGES.map((stage) => <option key={stage} value={stage}>{STAGE_LABELS[stage]}</option>)}</select>
+        <select value={tierFilter} onChange={(event) => setTierFilter(event.target.value)}><option>全部档位</option><option value="A">A档</option><option value="B">B档</option><option value="C">C档</option></select>
+        <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}><option>全部优先级</option><option value="high">高优先级</option><option value="normal">普通优先级</option><option value="low">低优先级</option></select>
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>全部状态</option><option value="draft">未排期</option><option value="scheduled">已排期</option><option value="published">已发布</option></select>
+      </> : null}
+      {(query || type !== "全部类型" || hasExtraFilters) ? <button className="text-button clear-content-filters" onClick={clearFilters}>清除筛选</button> : null}
+      <span>{(mode === "pipeline" ? baseFiltered : filtered).length} 条内容</span>
+    </div>
+    {mode === "pipeline" ? <div className="kanban">{stages.map((stage) => {
+      const items = baseFiltered.filter((item) => item.stage === stage);
       return <section key={stage} className="kanban-column" onDragOver={(e) => e.preventDefault()} onDrop={(e) => dropStage(e, stage)}>
         <header><div><i className="stage-dot" style={{ background: state.stageColors[stage] }} /><h2>{STAGE_LABELS[stage]}</h2></div><span>{items.length}</span></header>
         <div className="kanban-list">{items.map((item) => {
@@ -1667,9 +2125,24 @@ function PipelineView({ state, pageTitle, updateTitle, query, setQuery, type, se
             {stage === "archived" ? <span className="card-today archived">已归档</span> : stage === "inbox" ? <span className="card-today archived">灵感无需排期 · 先推进到大纲</span> : !todayEvent ? <button className="card-today" onClick={() => addToday(item.id)}>＋ 当前阶段安排今天</button> : <span className="card-today added">{todayEvent.completedAt ? "今日阶段已完成" : `今日 #${todayEvent.rank}`}</span>}
           </article>;
         })}</div>
-        <button className="column-add" onClick={create}>＋ 添加内容</button>
       </section>;
-    })}</div>
+    })}</div> : <section className="panel content-list-panel">
+      {filtered.length ? <div className="content-table-wrap"><table className="content-table">
+        <thead><tr><th>内容</th><th>当前阶段</th><th>类型 / 档位</th><th>优先级</th><th>发布状态</th><th>下一档期</th><th>最近更新</th></tr></thead>
+        <tbody>{filtered.map((item) => {
+          const nextPlanned = nextPlannedFor(item.id);
+          return <tr key={item.id}>
+            <td><button className="content-list-title" onClick={() => open(item.id)}><strong>{item.title}</strong><small>{item.tags.length ? item.tags.slice(0, 3).join(" · ") : item.idea || "尚未补充原始想法"}</small></button></td>
+            <td><Badge tone={item.stage} color={state.stageColors[item.stage]}>{STAGE_LABELS[item.stage]}</Badge></td>
+            <td><span className="content-list-type">{item.contentType}</span><Badge tone={`tier-${item.tier.toLowerCase()}`}>{item.tier}档</Badge></td>
+            <td><span className={`priority-label priority-${item.priority}`}>{priorityLabels[item.priority]}</span></td>
+            <td><span className={`publication-label publication-${item.publicationStatus}`}>{statusLabels[item.publicationStatus]}</span>{item.publishedAt ? <small className="publication-date">{item.publishedAt}</small> : null}</td>
+            <td>{nextPlanned ? <button className="next-schedule-link" onClick={() => open(item.id)}><strong>{STAGE_LABELS[nextPlanned.stage]}</strong><small>{nextPlanned.plannedDate}</small></button> : <span className="table-empty">—</span>}</td>
+            <td><time>{item.updatedAt || item.createdAt}</time></td>
+          </tr>;
+        })}</tbody>
+      </table></div> : <Empty title="没有匹配的内容" body="调整筛选条件，或者新建一条内容。" action={<button className="secondary-button" onClick={clearFilters}>清除筛选</button>} />}
+    </section>}
   </section>;
 }
 
@@ -1743,7 +2216,7 @@ function GoalsView({ state, pageTitle, updateTitle, health, followers, published
   };
 
   const archiveAndStart = () => {
-    if (!window.confirm("归档后当前阶段将只读保存，并创建一个新的阶段目标。确定继续吗？")) return;
+    if (!window.confirm("归档后当前目标将只读保存，并创建一个新的大目标。确定继续吗？")) return;
     setState((prev) => {
       const start = new Date(`${prev.goal.endDate}T12:00:00`);
       if (Number.isNaN(start.getTime())) return prev;
@@ -1777,7 +2250,7 @@ function GoalsView({ state, pageTitle, updateTitle, health, followers, published
 
   return <section className="page goals-page">
     <div className="page-heading stage-goal-heading">
-      <div><span className="eyebrow">大目标（阶段）</span><EditablePageTitle value={pageTitle} fallback={DEFAULT_PAGE_TITLES.goals} onChange={updateTitle} /><p>{pageTitle.trim() !== state.goal.objective.trim() && state.goal.objective.trim() ? `阶段目标：${state.goal.objective} · ` : ""}{state.goal.startDate} — {state.goal.endDate} · 指标修改统一放在配置中。</p></div>
+      <div><span className="eyebrow">大目标</span><EditablePageTitle value={pageTitle} fallback={DEFAULT_PAGE_TITLES.goals} onChange={updateTitle} /><p>{pageTitle.trim() !== state.goal.objective.trim() && state.goal.objective.trim() ? `目标方向：${state.goal.objective} · ` : ""}{state.goal.startDate} — {state.goal.endDate} · 指标修改统一放在配置中。</p></div>
       <button className="primary-button" onClick={() => setShowConfig(true)}>配置目标指标</button>
     </div>
 
@@ -1859,7 +2332,7 @@ function GoalSettingsModal({ goal, goalHistory, contentTypes, close, save, archi
 
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
     <section className="goal-config-modal" role="dialog" aria-modal="true" aria-labelledby="goal-config-title">
-      <header><div><span className="eyebrow">GOAL SETTINGS</span><h2 id="goal-config-title">配置大目标（阶段）</h2><p>保存后，外部总览与发布统计会自动重新计算。</p></div><button className="close-button" onClick={close} aria-label="关闭目标配置">×</button></header>
+      <header><div><span className="eyebrow">GOAL SETTINGS</span><h2 id="goal-config-title">配置大目标</h2><p>保存后，外部总览与发布统计会自动重新计算。</p></div><button className="close-button" onClick={close} aria-label="关闭目标配置">×</button></header>
       <div className="goal-config-body">
         <section><h3>阶段方向与时间</h3><label className="field full"><span>阶段大目标</span><textarea value={draft.objective} onChange={(event) => setDraft((prev) => ({ ...prev, objective: event.target.value }))} placeholder="这一阶段，希望账号进入什么状态？" /></label><div className="form-grid"><label className="field"><span>开始日期</span><input type="date" value={draft.startDate} onChange={(event) => setDraft((prev) => ({ ...prev, startDate: event.target.value }))} /></label><label className="field"><span>结束日期</span><input type="date" value={draft.endDate} onChange={(event) => setDraft((prev) => ({ ...prev, endDate: event.target.value }))} /></label></div></section>
         <section><h3>发布目标</h3><label className="field goal-config-total"><span>计划发布总数</span><input type="number" min="0" value={draft.outputTarget} onChange={(event) => setDraft((prev) => ({ ...prev, outputTarget: Number(event.target.value) }))} /></label><div className="goal-config-quota">{draft.quotas.filter((item) => item.contentType !== "其他").map((quota) => <label key={quota.contentType}><span>{quota.contentType}</span><input type="number" min="0" value={quota.target} onChange={(event) => updateQuota(quota.contentType, Number(event.target.value))} /></label>)}</div><p className={assignedTotal > draft.outputTarget ? "validation-note" : "goal-config-hint"}>{assignedTotal > draft.outputTarget ? `类型配额已超过总目标 ${assignedTotal - draft.outputTarget} 条。` : `尚未分配的 ${unallocated} 条会自动归入“其他”。`}</p></section>
@@ -1907,7 +2380,7 @@ function ReviewView({ state, pageTitle, updateTitle, open, setState }: { state: 
   </section>;
 }
 
-function SettingsView({ state, pageTitle, updateTitle, setState, exportData, fileInput, importData, importMode, setImportMode, onReset }: { state: WorkspaceState; pageTitle: string; updateTitle: (value: string) => void; setState: React.Dispatch<React.SetStateAction<WorkspaceState>>; exportData: () => void; fileInput: React.RefObject<HTMLInputElement | null>; importData: (event: ChangeEvent<HTMLInputElement>) => void; importMode: "merge" | "replace"; setImportMode: (mode: "merge" | "replace") => void; onReset: () => void }) {
+function SettingsView({ state, pageTitle, updateTitle, updateDesignStyle, setState, exportData, fileInput, importData, onReset }: { state: WorkspaceState; pageTitle: string; updateTitle: (value: string) => void; updateDesignStyle: (designStyle: DesignStyle) => void; setState: React.Dispatch<React.SetStateAction<WorkspaceState>>; exportData: () => void; fileInput: React.RefObject<HTMLInputElement | null>; importData: (event: ChangeEvent<HTMLInputElement>) => void; onReset: () => void }) {
   const [newType, setNewType] = useState("");
   const updateProfile = (patch: Partial<CreatorProfile>) => setState((prev) => ({
     ...prev,
@@ -1929,6 +2402,35 @@ function SettingsView({ state, pageTitle, updateTitle, setState, exportData, fil
   return <section className="page settings-page">
     <div className="page-heading"><span className="eyebrow">SETTINGS</span><EditablePageTitle value={pageTitle} fallback={DEFAULT_PAGE_TITLES.settings} onChange={updateTitle} /><p>先把工作台变成你的，再放心把内容数据留在当前设备。</p></div>
     <div className="settings-grid">
+      <div className="panel settings-card wide appearance-settings-card">
+        <div className="settings-icon">◐</div>
+        <div>
+          <h2>外观风格</h2>
+          <p>选择后会立即应用到整个工作台，并随本地数据自动保存。“安静编辑部”支持深色，其余风格目前仅提供浅色。</p>
+          <div className="design-style-grid" role="radiogroup" aria-label="选择设计风格">
+            {DESIGN_STYLE_OPTIONS.map((option) => <button
+              key={option.id}
+              type="button"
+              className={state.designStyle === option.id ? "design-style-option active" : "design-style-option"}
+              role="radio"
+              aria-checked={state.designStyle === option.id}
+              onClick={() => updateDesignStyle(option.id)}
+            >
+              <span className={`design-style-preview preview-${option.id}`} aria-hidden="true">
+                <i className="preview-sidebar"><b>{option.id === "retro" ? "CC" : option.id === "bauhaus" ? "●" : creatorMark(state.profile)}</b><em /><em /><em /></i>
+                <i className="preview-workspace">
+                  <b>{option.id === "swiss" ? "TODAY / 03" : option.id === "future" ? "Creator OS" : option.id === "retro" ? "Task_Manager.exe" : option.id === "bauhaus" ? "今天做什么？" : "今日推进"}</b>
+                  <span><em /><em /><em /></span>
+                  <span><em /><em /></span>
+                </i>
+              </span>
+              <span className="design-style-copy"><strong>{option.name}</strong><small>{option.tagline}</small><em>{option.description}</em></span>
+              <span className="design-style-support">{option.id === "editorial" ? "支持深色" : "仅浅色"}</span>
+            </button>)}
+          </div>
+        </div>
+      </div>
+
       <div className="panel settings-card wide profile-settings-card">
         <div className="settings-icon">{creatorMark(state.profile)}</div>
         <div>
@@ -1944,10 +2446,10 @@ function SettingsView({ state, pageTitle, updateTitle, setState, exportData, fil
         </div>
       </div>
 
-      <div className="panel settings-card"><div className="settings-icon">⇩</div><div><h2>数据备份</h2><p>导出包含个人设置、内容、脚本、档期、目标、指标和规则的完整 JSON 文件。</p><button className="primary-button" onClick={exportData}>导出完整备份</button>{state.lastBackupAt ? <small>上次备份：{state.lastBackupAt.slice(0, 10)}</small> : <small>还没有导出过备份</small>}</div></div>
-      <div className="panel settings-card"><div className="settings-icon">⇧</div><div><h2>导入与恢复</h2><p>合并会保留当前个人设置，并按 ID 更新记录；覆盖会恢复备份中的全部设置和数据。</p><div className="segmented"><button className={importMode === "merge" ? "active" : ""} onClick={() => setImportMode("merge")}>合并导入</button><button className={importMode === "replace" ? "active" : ""} onClick={() => setImportMode("replace")}>覆盖恢复</button></div><button className="secondary-button" onClick={() => fileInput.current?.click()}>选择备份文件</button><input ref={fileInput} type="file" accept="application/json" hidden onChange={importData} /></div></div>
+      <div className="panel settings-card"><div className="settings-icon">⇩</div><div><h2>数据备份</h2><p>导出包含个人设置、灵感、内容、脚本、档期、目标、指标和规则的完整 JSON 文件。</p><button className="primary-button" onClick={exportData}>导出完整备份</button>{state.lastBackupAt ? <small>上次备份：{state.lastBackupAt.slice(0, 10)}</small> : <small>还没有导出过备份</small>}</div></div>
+      <div className="panel settings-card"><div className="settings-icon">⇧</div><div><h2>导入与恢复</h2><p>选择备份后，会先预览灵感、内容、档期、复盘和粉丝快照数量，再决定合并或覆盖。</p><button className="secondary-button" onClick={() => fileInput.current?.click()}>选择并预览备份</button><input ref={fileInput} type="file" accept="application/json" hidden onChange={importData} /></div></div>
 
-      <div className="panel settings-card wide"><div className="settings-icon">#</div><div><h2>内容类型</h2><p>每条内容只能有一个主要类型。类型会用于阶段目标配额和复盘对比。</p><div className="type-chips">{state.contentTypes.map((type) => <span key={type}>{type}<button aria-label={`删除${type}`} onClick={() => setState((prev) => { const quotas = normalizeGoalQuotas(prev.goal.outputTarget, prev.goal.quotas.filter((item) => item.contentType !== type)); return { ...prev, contentTypes: prev.contentTypes.filter((item) => item !== type), goal: { ...prev.goal, quotas } }; })}>×</button></span>)}</div><div className="add-type"><input value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="添加新的内容类型" /><button onClick={() => { const value = newType.trim(); if (!value || value === "其他" || state.contentTypes.includes(value)) return; setState((prev) => { const quotas = normalizeGoalQuotas(prev.goal.outputTarget, [...prev.goal.quotas, { contentType: value, target: 0 }]); return { ...prev, contentTypes: [...prev.contentTypes, value], goal: { ...prev.goal, quotas } }; }); setNewType(""); }}>添加</button></div></div></div>
+      <div className="panel settings-card wide"><div className="settings-icon">#</div><div><h2>内容类型</h2><p>每条内容只能有一个主要类型。类型会用于大目标配额和复盘对比。</p><div className="type-chips">{state.contentTypes.map((type) => <span key={type}>{type}<button aria-label={`删除${type}`} onClick={() => setState((prev) => { const quotas = normalizeGoalQuotas(prev.goal.outputTarget, prev.goal.quotas.filter((item) => item.contentType !== type)); return { ...prev, contentTypes: prev.contentTypes.filter((item) => item !== type), goal: { ...prev.goal, quotas } }; })}>×</button></span>)}</div><div className="add-type"><input value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="添加新的内容类型" /><button onClick={() => { const value = newType.trim(); if (!value || value === "其他" || state.contentTypes.includes(value)) return; setState((prev) => { const quotas = normalizeGoalQuotas(prev.goal.outputTarget, [...prev.goal.quotas, { contentType: value, target: 0 }]); return { ...prev, contentTypes: [...prev.contentTypes, value], goal: { ...prev.goal, quotas } }; }); setNewType(""); }}>添加</button></div></div></div>
       <div className="panel settings-card danger-card"><div className="settings-icon">!</div><div><h2>清空工作台</h2><p>删除当前浏览器中的全部内容与目标数据，保留创作者档案。操作前请先导出备份。</p><button className="danger-button" onClick={onReset}>清空内容与目标</button></div></div>
       <div className="panel settings-card"><div className="settings-icon">✦</div><div><h2>AI 辅助</h2><p>未配置密钥时自动生成提示词；配置后可在看板内直接得到结构化建议。</p><small>服务端变量：OPENAI_API_KEY<br />默认模型：gpt-5.6-luna</small></div></div>
     </div>
@@ -2003,12 +2505,12 @@ function ContentDrawer({ item, initialTab, stageEvents, stageColors, contentType
   const reviewPublished = item.publicationStatus === "published";
   const reviewStatus = !reviewPublished ? "unavailable" : item.review.completedAt ? "completed" : "pending";
   return <div className="drawer-backdrop" onMouseDown={(e) => { if (e.currentTarget === e.target) close(); }}><aside className="drawer" aria-label="内容详情"><header className="drawer-header"><div><div className="drawer-badges"><Badge tone={item.stage} color={stageColors[item.stage]}>{STAGE_LABELS[item.stage]}</Badge><Badge tone={`tier-${item.tier.toLowerCase()}`}>{item.tier}档</Badge></div><input className="drawer-title" value={item.title} onChange={(e) => update({ title: e.target.value })} /></div><button className="close-button" onClick={close} aria-label="关闭">×</button></header><div className="drawer-tabs">{(["overview", "topic", "script", "recording", "editing", "publish", "review"] as const).map((value) => <button key={value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{({ overview: "概览", topic: "大纲", script: "脚本", recording: "录制", editing: "剪辑", publish: "发布", review: "复盘" })[value]}</button>)}</div><div className="drawer-body">
-    {tab === "overview" ? <div className="drawer-section"><StageStatusPanel item={item} stageColors={stageColors} setStageStatus={setStageStatus} /><div className="form-grid"><label className="field"><span>全局当前阶段</span><select value={item.stage} onChange={(e) => changeStage(e.target.value as ContentStage)}>{Object.entries(STAGE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><small>修改后会同步到内容管线和 Todo。</small></label><label className="field"><span>内容档位</span><select value={item.tier} onChange={(e) => update({ tier: e.target.value as ContentItem["tier"] })}><option value="C">C档快发</option><option value="B">B档常规</option><option value="A">A档精品</option></select></label><label className="field"><span>主要类型</span><select value={item.contentType} onChange={(e) => update({ contentType: e.target.value })}>{contentTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label className="field"><span>优先级</span><select value={item.priority} onChange={(e) => update({ priority: e.target.value as ContentItem["priority"] })}><option value="high">高</option><option value="normal">普通</option><option value="low">低</option></select></label></div>{SCHEDULABLE_STAGES.includes(item.stage as WorkStage) ? <StageScheduleField item={item} stage={item.stage as WorkStage} stageEvents={stageEvents} schedule={schedule} unschedule={unschedule} label="当前阶段计划完成" /> : item.stage === "inbox" ? <p className="stage-no-schedule-note">灵感只用于收集，不需要设置完成日期；进入大纲后再开始排期。</p> : item.stage === "review" ? <p className="stage-no-schedule-note">单篇内容不再安排复盘日期；可以在档期规划中放置统一的“复盘日”。</p> : null}<label className="field full"><span>原始 idea</span><textarea value={item.idea} onChange={(e) => update({ idea: e.target.value })} /></label><label className="field full"><span>标签（用顿号分隔）</span><input value={item.tags.join("、")} onChange={(e) => update({ tags: e.target.value.split(/[、,，]/).map((tag) => tag.trim()).filter(Boolean) })} /></label><div className="next-action-card"><span>下一步动作</span><strong>{NEXT_ACTIONS[item.stage]}</strong><p>上次更新：{item.updatedAt}</p></div></div> : null}
+    {tab === "overview" ? <div className="drawer-section"><StageStatusPanel item={item} stageColors={stageColors} setStageStatus={setStageStatus} /><div className="form-grid"><label className="field"><span>全局当前阶段</span><select value={item.stage} onChange={(e) => changeStage(e.target.value as ContentStage)}>{Object.entries(STAGE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><small>修改后会同步到内容总览和 Todo。</small></label><label className="field"><span>内容档位</span><select value={item.tier} onChange={(e) => update({ tier: e.target.value as ContentItem["tier"] })}><option value="C">C档快发</option><option value="B">B档常规</option><option value="A">A档精品</option></select></label><label className="field"><span>主要类型</span><select value={item.contentType} onChange={(e) => update({ contentType: e.target.value })}>{contentTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label className="field"><span>优先级</span><select value={item.priority} onChange={(e) => update({ priority: e.target.value as ContentItem["priority"] })}><option value="high">高</option><option value="normal">普通</option><option value="low">低</option></select></label></div>{SCHEDULABLE_STAGES.includes(item.stage as WorkStage) ? <StageScheduleField item={item} stage={item.stage as WorkStage} stageEvents={stageEvents} schedule={schedule} unschedule={unschedule} label="当前阶段计划完成" /> : item.stage === "inbox" ? <p className="stage-no-schedule-note">灵感只用于收集，不需要设置完成日期；进入大纲后再开始排期。</p> : item.stage === "review" ? <p className="stage-no-schedule-note">单篇内容不再安排复盘日期；可以在档期规划中放置统一的“复盘日”。</p> : null}<label className="field full"><span>原始 idea</span><textarea value={item.idea} onChange={(e) => update({ idea: e.target.value })} /></label><label className="field full"><span>标签（用顿号分隔）</span><input value={item.tags.join("、")} onChange={(e) => update({ tags: e.target.value.split(/[、,，]/).map((tag) => tag.trim()).filter(Boolean) })} /></label><div className="next-action-card"><span>下一步动作</span><strong>{NEXT_ACTIONS[item.stage]}</strong><p>上次更新：{item.updatedAt}</p></div></div> : null}
     {tab === "topic" ? <div className="drawer-section"><div className="section-title-row"><div><span className="eyebrow">TOPIC GATE</span><h3>大纲卡</h3></div><button className="ai-button small" disabled={aiLoading} onClick={() => analyze("topic", item.topic, "选题体检")}><Icon name="spark" />AI 体检</button></div><StageScheduleField item={item} stage="topic" stageEvents={stageEvents} schedule={schedule} unschedule={unschedule} />{[["目标受众", "audience"], ["具体痛点", "painPoint"], ["一句话观点", "pointOfView"], ["大家通常怎么讲", "commonAngle"], ["我的反差角度", "contrastAngle"], ["可展示素材", "assets"], ["最低成本拍法", "minimumProduction"]].map(([label, key]) => <label key={key} className="field full"><span>{label}</span><textarea value={String(item.topic[key as keyof typeof item.topic] ?? "")} onChange={(e) => updateTopic({ [key]: e.target.value })} /></label>)}<div className="score-card"><div><span>六维总分</span><strong>{score}<small> / 30</small></strong></div><div className="score-grid">{Object.entries({ audience: "受众", pain: "痛点", scene: "场景", demonstrable: "可展示", distribution: "传播", efficiency: "性价比" }).map(([key, label]) => <label key={key}><span>{label}</span><input type="range" min="0" max="5" value={item.topic.score[key as keyof typeof item.topic.score]} onChange={(e) => updateTopic({ score: { ...item.topic.score, [key]: Number(e.target.value) } })} /><strong>{item.topic.score[key as keyof typeof item.topic.score]}</strong></label>)}</div></div></div> : null}
     {tab === "script" ? <div className="drawer-section"><div className="section-title-row"><div><span className="eyebrow">SCRIPT</span><h3>先搭结构，再改措辞</h3></div><button className="ai-button small" disabled={aiLoading} onClick={() => analyze("script", item.script, "脚本质检")}><Icon name="spark" />AI 质检</button></div><StageScheduleField item={item} stage="script" stageEvents={stageEvents} schedule={schedule} unschedule={unschedule} />{[["标题方向", "headline"], ["开头 3 秒", "hook"], ["一句话结论", "conclusion"], ["内容结构", "body"], ["案例 / 演示", "example"], ["结尾行动 / 观点", "ending"]].map(([label, key]) => <label key={key} className="field full"><span>{label}</span><textarea className={key === "body" ? "large" : ""} value={item.script[key as keyof typeof item.script]} onChange={(e) => updateScript({ [key]: e.target.value })} /></label>)}</div> : null}
     {tab === "recording" ? <div className="drawer-section"><div className="stage-detail-strip"><span>录制阶段</span><Badge tone="recording" color={stageColors.recording}>录制</Badge><small>完成后进入剪辑</small></div><StageScheduleField item={item} stage="recording" stageEvents={stageEvents} schedule={schedule} unschedule={unschedule} /><label className="field full"><span>录制备注</span><textarea className="large" value={item.recordingNotes} onChange={(e) => update({ recordingNotes: e.target.value })} placeholder="记录机位、口播、录屏、演示路径和补拍素材…" /></label><div className="checklist"><strong>录制完成清单</strong>{["机位与画面可用", "收音清晰", "口播或演示路径完整", "必要素材与补拍镜头齐全"].map((text) => <label key={text}><input type="checkbox" />{text}</label>)}</div></div> : null}
     {tab === "editing" ? <div className="drawer-section"><div className="stage-detail-strip"><span>剪辑阶段</span><Badge tone="editing" color={stageColors.editing}>剪辑</Badge><small>完成后进入发布</small></div><StageScheduleField item={item} stage="editing" stageEvents={stageEvents} schedule={schedule} unschedule={unschedule} /><label className="field full"><span>剪辑备注</span><textarea className="large" value={item.editingNotes} onChange={(e) => update({ editingNotes: e.target.value })} placeholder="记录结构删改、字幕、包装、素材替换和导出要求…" /></label><div className="checklist"><strong>剪辑完成清单</strong>{["开头 5 秒直接进入场景", "案例或演示重点清楚", "字幕清楚可读", "封面与标题已确认", `${item.tier}档制作投入已控制`].map((text) => <label key={text}><input type="checkbox" />{text}</label>)}</div></div> : null}
-    {tab === "publish" ? <div className="drawer-section"><StageScheduleField item={item} stage="publishing" stageEvents={stageEvents} schedule={schedule} unschedule={unschedule} label="计划发布日期" /><div className="form-grid"><label className="field"><span>发布状态</span><select value={item.publicationStatus} disabled><option value="draft">未排期</option><option value="scheduled">已排期</option><option value="published">已发布</option></select><small>由发布档期和实际发布记录自动更新。</small></label><label className="field"><span>实际发布时间</span><input type="date" value={item.publishedAt} onChange={(e) => update({ publishedAt: e.target.value })} /></label></div><label className="field full"><span>封面文案</span><input value={item.coverCopy} onChange={(e) => update({ coverCopy: e.target.value })} /></label><label className="field full"><span>发布正文</span><textarea className="large" value={item.publishCopy} onChange={(e) => update({ publishCopy: e.target.value })} /></label><label className="field full"><span>小红书链接</span><input value={item.xhsLink} onChange={(e) => update({ xhsLink: e.target.value })} placeholder="https://www.xiaohongshu.com/..." /></label>{item.publicationStatus !== "published" ? <><button className="primary-button full-button" disabled={!item.publishedAt} onClick={markPublished}>标记为已发布</button>{!item.publishedAt ? <p className="validation-note">先填写实际发布时间，系统才会计入阶段目标。</p> : null}</> : <div className="published-banner"><span>已发布于 {item.publishedAt} · 已进入待复盘列表</span><button onClick={unmarkPublished}>撤销发布记录</button></div>}</div> : null}
+    {tab === "publish" ? <div className="drawer-section"><StageScheduleField item={item} stage="publishing" stageEvents={stageEvents} schedule={schedule} unschedule={unschedule} label="计划发布日期" /><div className="form-grid"><label className="field"><span>发布状态</span><select value={item.publicationStatus} disabled><option value="draft">未排期</option><option value="scheduled">已排期</option><option value="published">已发布</option></select><small>由发布档期和实际发布记录自动更新。</small></label><label className="field"><span>实际发布时间</span><input type="date" value={item.publishedAt} onChange={(e) => update({ publishedAt: e.target.value })} /></label></div><label className="field full"><span>封面文案</span><input value={item.coverCopy} onChange={(e) => update({ coverCopy: e.target.value })} /></label><label className="field full"><span>发布正文</span><textarea className="large" value={item.publishCopy} onChange={(e) => update({ publishCopy: e.target.value })} /></label><label className="field full"><span>小红书链接</span><input value={item.xhsLink} onChange={(e) => update({ xhsLink: e.target.value })} placeholder="https://www.xiaohongshu.com/..." /></label>{item.publicationStatus !== "published" ? <><button className="primary-button full-button" disabled={!item.publishedAt} onClick={markPublished}>标记为已发布</button>{!item.publishedAt ? <p className="validation-note">先填写实际发布时间，系统才会计入大目标。</p> : null}</> : <div className="published-banner"><span>已发布于 {item.publishedAt} · 已进入待复盘列表</span><button onClick={unmarkPublished}>撤销发布记录</button></div>}</div> : null}
     {tab === "review" ? <div className="drawer-section review-drawer-section"><div className="section-title-row"><div><span className="eyebrow">T+3 REVIEW</span><h3>给这篇内容定型</h3></div><span className={`review-state-badge ${reviewStatus}`}>{reviewStatus === "completed" ? "已复盘" : reviewStatus === "pending" ? "待复盘" : "尚未发布"}</span></div><p className="stage-no-schedule-note">单篇内容不设置复盘档期；请在统一的“复盘日”集中处理待复盘内容。</p><section className="review-block"><header><span>01</span><div><strong>数据快照</strong><small>记录发布后的真实表现</small></div></header><div className="metrics-grid">{[["播放", "views"], ["点赞", "likes"], ["收藏", "saves"], ["评论", "comments"], ["涨粉", "followerGain"]].map(([label, key]) => <label key={key}><span>{label}</span><input type="number" min="0" value={item.metrics[key as keyof typeof item.metrics] as number} onChange={(e) => updateMetrics(key as keyof ContentItem["metrics"], Number(e.target.value))} /></label>)}</div><label className="field full"><span>数据快照日期</span><input type="date" value={item.metrics.capturedAt} onChange={(e) => updateMetrics("capturedAt", e.target.value)} /><small>建议在发布后第 3 天录入，便于横向比较内容表现。</small></label></section><section className="review-block review-rating-block"><header><span>02</span><div><strong>定型评价</strong><small>这篇内容最终值几颗星？</small></div></header><StarRating value={item.review.rating} onChange={(rating) => update({ review: { ...item.review, rating } })} /></section><section className="review-block"><header><span>03</span><div><strong>复盘分析</strong><small>写下为什么，以及下一条要怎么做</small></div></header><label className="field full"><textarea className="review-analysis-input" value={item.review.analysis} onChange={(e) => update({ review: { ...item.review, analysis: e.target.value } })} placeholder="例如：具体场景带来了高收藏，但开头进入主题太慢；下一条先展示结果，再解释过程。" /></label></section><section className="review-block review-rule-compose"><header><span>04</span><div><strong>这次学到的规则</strong><small>提炼成以后可以重复使用的一句话</small></div></header><label className="field full"><textarea value={item.review.learnedRule} onChange={(e) => update({ review: { ...item.review, learnedRule: e.target.value } })} placeholder="例如：讲工作流时，先展示最终工作台，再解释每一步。" /></label><button className="secondary-button full-button" disabled={!item.review.learnedRule.trim() || ruleDeposited} onClick={() => addRule(item.review.learnedRule)}>{ruleDeposited ? "已沉淀为内容规则" : "沉淀为内容规则"}</button></section><div className={`review-save-bar ${item.review.completedAt ? "completed" : ""}`}><div><strong>{!reviewPublished ? "发布后才能保存复盘" : item.review.completedAt ? "这篇内容已完成复盘" : "完成后再保存复盘"}</strong><small>{!reviewPublished ? "发布后会自动进入待复盘列表。" : item.review.completedAt ? `上次保存：${item.review.completedAt.slice(0, 10)}，仍可修改后更新。` : "至少需要完成星级评价和复盘分析。"}</small></div><button className="primary-button" disabled={!reviewPublished || !item.review.rating || !item.review.analysis.trim()} onClick={saveReview}>{item.review.completedAt ? "更新复盘" : "保存复盘"}</button></div></div> : null}
     <div className="drawer-footer-action"><small>永久操作，删除后无法恢复</small><button type="button" className="delete-content-button" onClick={remove}>删除此内容</button></div>
   </div></aside></div>;
@@ -2040,7 +2542,7 @@ function Onboarding({ start }: { start: (mode: "demo" | "blank", profile: Creato
       <label><span>内容方向</span><input value={contentFocus} onChange={(event) => setContentFocus(event.target.value)} placeholder="例如 AI 产品与工作流" /></label>
     </div>
     <div className="onboarding-title-preview"><span>{creatorMark(profile)}</span><div><small>你的看板</small><strong>{dashboardTitle(profile)}</strong></div></div>
-    <div className="onboarding-options"><button onClick={() => start("demo", profile)}><strong>从示例开始</strong><span>先体验完整内容管线，再替换成自己的内容</span><em>推荐 →</em></button><button onClick={() => start("blank", profile)}><strong>从空白开始</strong><span>只保留默认内容类型，建立自己的第一条内容</span><em>开始 →</em></button></div>
+    <div className="onboarding-options"><button onClick={() => start("demo", profile)}><strong>从示例开始</strong><span>先体验灵感池与完整内容流程，再替换成自己的内容</span><em>推荐 →</em></button><button onClick={() => start("blank", profile)}><strong>从空白开始</strong><span>只保留默认内容类型，建立自己的第一张灵感卡片</span><em>开始 →</em></button></div>
     <small>之后可以在“设置与备份”中修改个人信息、导出或恢复数据。</small>
   </div></div>;
 }

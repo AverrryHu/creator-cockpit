@@ -8,7 +8,7 @@ import {
   qualifiedContents,
   startOfWeekISO,
 } from "../app/lib/calculations.ts";
-import { DEFAULT_CREATOR_PROFILE, DEFAULT_PAGE_TITLES, DEFAULT_SCHEDULE_OBJECT_TYPES, DEFAULT_STAGE_COLORS, type ContentItem, type GoalCycle, type LiveSession, type ScheduleObject, type ScheduleObjectType, type StageEvent, type WorkspaceState } from "../app/lib/model.ts";
+import { DEFAULT_CREATOR_PROFILE, DEFAULT_DESIGN_STYLE, DEFAULT_NAVIGATION_ORDER, DEFAULT_PAGE_TITLES, DEFAULT_SCHEDULE_OBJECT_TYPES, DEFAULT_STAGE_COLORS, type ContentItem, type GoalCycle, type LiveSession, type ScheduleObject, type ScheduleObjectType, type StageEvent, type WorkspaceState } from "../app/lib/model.ts";
 import {
   addReviewDay,
   archiveScheduleObjectType,
@@ -86,11 +86,14 @@ function content(partial: Partial<ContentItem> = {}): ContentItem {
 
 function workspace(item = content(), events: StageEvent[] = []): WorkspaceState {
   return {
-    schemaVersion: 13,
+    schemaVersion: 16,
+    designStyle: DEFAULT_DESIGN_STYLE,
+    navigationOrder: [...DEFAULT_NAVIGATION_ORDER],
     profile: { ...DEFAULT_CREATOR_PROFILE },
     pageTitles: { ...DEFAULT_PAGE_TITLES },
     setupComplete: true,
     lastBackupAt: "",
+    inspirationCards: [],
     contents: [item],
     stageEvents: events,
     reviewDays: [],
@@ -418,6 +421,13 @@ test("review and live use the same editable and removable type model", () => {
 test("deleting content clears its schedule and insight references", () => {
   const state: WorkspaceState = {
     ...workspace(),
+    inspirationCards: [{
+      id: "source-idea",
+      text: "先记录一个想法。",
+      createdAt: "2026-07-12T12:00:00.000Z",
+      updatedAt: "2026-07-12T12:00:00.000Z",
+      convertedContentIds: ["content-1", "keep"],
+    }],
     contents: [content(), content({ id: "keep" })],
     stageEvents: [
       { id: "delete-event", contentId: "content-1", stage: "publishing", plannedDate: "2026-07-13", rank: 0, completedAt: "" },
@@ -432,6 +442,7 @@ test("deleting content clears its schedule and insight references", () => {
   assert.deepEqual(next.contents.map((item) => item.id), ["keep"]);
   assert.deepEqual(next.insightRules.map((rule) => rule.id), ["keep-rule"]);
   assert.deepEqual(next.stageEvents.map((event) => event.id), ["keep-event"]);
+  assert.deepEqual(next.inspirationCards[0].convertedContentIds, ["keep"]);
 });
 
 test("legacy workspaces migrate dates into stage events and discard weekly planning", () => {
@@ -469,7 +480,10 @@ test("legacy workspaces migrate dates into stage events and discard weekly plann
     insightRules: [],
     contentTypes: ["AI 产品实测"],
   });
-  assert.equal(migrated?.schemaVersion, 13);
+  assert.equal(migrated?.schemaVersion, 16);
+  assert.equal(migrated?.designStyle, "editorial");
+  assert.deepEqual(migrated?.navigationOrder, DEFAULT_NAVIGATION_ORDER);
+  assert.deepEqual(migrated?.inspirationCards, []);
   assert.equal(migrated?.profile.dashboardTitle, "示例创作者的内容工作台");
   assert.equal(migrated?.pageTitles.goals, goal.objective);
   assert.equal(migrated?.stageColors.recording, DEFAULT_STAGE_COLORS.recording);
@@ -516,7 +530,7 @@ test("archived legacy content is recognized as reviewed", () => {
     ...workspace(item, [{ id: "completed-review", contentId: item.id, stage: "review", plannedDate: "2026-07-13", rank: 0, completedAt: "2026-07-13T12:00:00.000Z" }]),
     schemaVersion: 7,
   });
-  assert.equal(migrated?.schemaVersion, 13);
+  assert.equal(migrated?.schemaVersion, 16);
   assert.equal(migrated?.contents[0].review.completedAt, "2026-07-13T12:00:00.000Z");
   assert.equal(migrated?.stageEvents.some((event) => event.stage === "review"), false);
 });
@@ -537,6 +551,63 @@ test("creator profile survives backup migration", () => {
     primaryPlatform: "B站",
     contentFocus: "设计与效率",
   });
+});
+
+test("design style survives backup migration and old backups use the default", () => {
+  const styled = migrateWorkspace({
+    ...workspace(),
+    schemaVersion: 15,
+    designStyle: "retro",
+  });
+  assert.equal(styled?.designStyle, "retro");
+
+  const legacy = migrateWorkspace({
+    ...workspace(),
+    schemaVersion: 14,
+    designStyle: undefined,
+  });
+  assert.equal(legacy?.designStyle, "editorial");
+});
+
+test("custom navigation order survives migration and invalid entries are repaired", () => {
+  const restored = migrateWorkspace({
+    ...workspace(),
+    navigationOrder: ["review", "inspirations", "review", "unknown", "schedule"],
+  });
+  assert.deepEqual(restored?.navigationOrder, [
+    "review",
+    "inspirations",
+    "schedule",
+    "momentum",
+    "pipeline",
+    "goals",
+  ]);
+
+  const legacy = migrateWorkspace({
+    ...workspace(),
+    schemaVersion: 15,
+    navigationOrder: undefined,
+  });
+  assert.deepEqual(legacy?.navigationOrder, DEFAULT_NAVIGATION_ORDER);
+});
+
+test("inspiration cards remain separate from content and survive migration", () => {
+  const restored = migrateWorkspace({
+    ...workspace(),
+    inspirationCards: [
+      {
+        id: "idea-1",
+        text: "从一个真实场景测试三种 AI 工具。",
+        createdAt: "2026-07-20T09:00:00.000Z",
+        updatedAt: "2026-07-20T09:00:00.000Z",
+        convertedContentIds: ["content-1"],
+      },
+    ],
+  });
+  assert.equal(restored?.inspirationCards.length, 1);
+  assert.equal(restored?.inspirationCards[0].text, "从一个真实场景测试三种 AI 工具。");
+  assert.deepEqual(restored?.inspirationCards[0].convertedContentIds, ["content-1"]);
+  assert.equal(restored?.contents.length, 1);
 });
 
 test("review days, live sessions, and custom schedules survive versioned backup migration", () => {
@@ -576,7 +647,7 @@ test("review days, live sessions, and custom schedules survive versioned backup 
       updatedAt: "2026-07-18T12:00:00.000Z",
     }],
   });
-  assert.equal(restored?.schemaVersion, 13);
+  assert.equal(restored?.schemaVersion, 16);
   assert.equal(restored?.reviewDays[0].plannedDate, "2026-07-24");
   assert.deepEqual(restored?.liveSessions[0], session);
   assert.equal(restored?.scheduleObjectTypes.find((item) => item.id === "schedule-type-backup")?.name, "活动");

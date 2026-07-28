@@ -4,6 +4,10 @@ import { setContentStageCompletion } from "./workflow.ts";
 export function deleteContentFromWorkspace(state: WorkspaceState, contentId: string): WorkspaceState {
   return {
     ...state,
+    inspirationCards: state.inspirationCards.map((card) => ({
+      ...card,
+      convertedContentIds: card.convertedContentIds.filter((id) => id !== contentId),
+    })),
     contents: state.contents.filter((item) => item.id !== contentId),
     stageEvents: state.stageEvents.filter((event) => event.contentId !== contentId),
     insightRules: state.insightRules.filter((rule) => rule.sourceContentId !== contentId),

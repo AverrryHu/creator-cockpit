@@ -10,6 +10,16 @@ export type ContentStage =
 
 export type WorkStage = Exclude<ContentStage, "archived">;
 export type ContentTier = "A" | "B" | "C";
+export type DesignStyle = "editorial" | "swiss" | "future" | "retro" | "bauhaus";
+export type NavigationItemId = "inspirations" | "momentum" | "schedule" | "pipeline" | "goals" | "review";
+export const DEFAULT_NAVIGATION_ORDER: NavigationItemId[] = [
+  "inspirations",
+  "momentum",
+  "schedule",
+  "pipeline",
+  "goals",
+  "review",
+];
 export type QualityMetric =
   | "views"
   | "likeRate"
@@ -81,6 +91,14 @@ export interface ContentItem {
   editingNotes: string;
   metrics: MetricsSnapshot;
   review: Review;
+}
+
+export interface InspirationCard {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  convertedContentIds: string[];
 }
 
 export interface StageEvent {
@@ -198,6 +216,7 @@ export interface CreatorProfile {
 }
 
 export type PageTitleKey =
+  | "inspirations"
   | "today"
   | "week"
   | "schedule"
@@ -209,9 +228,12 @@ export type PageTitleKey =
 export type PageTitles = Record<PageTitleKey, string>;
 
 export interface WorkspaceState {
-  schemaVersion: 13;
+  schemaVersion: 16;
+  designStyle: DesignStyle;
+  navigationOrder: NavigationItemId[];
   profile: CreatorProfile;
   pageTitles: PageTitles;
+  inspirationCards: InspirationCard[];
   contents: ContentItem[];
   stageEvents: StageEvent[];
   reviewDays: ReviewDay[];
@@ -303,11 +325,14 @@ export const DEFAULT_CREATOR_PROFILE: CreatorProfile = {
   contentFocus: "内容创作与效率工具",
 };
 
+export const DEFAULT_DESIGN_STYLE: DesignStyle = "editorial";
+
 export const DEFAULT_PAGE_TITLES: PageTitles = {
+  inspirations: "先收下想法，再决定要不要做成内容",
   today: "今天，只完成已经排好的阶段",
   week: "看清这一周，要把哪些内容推到哪里",
   schedule: "把内容的每个阶段，放进真实档期",
-  pipeline: "让每条内容都走到发布与反馈",
+  pipeline: "在一个地方，看清所有内容的状态",
   goals: "看清这阶段，离目标还有多远",
   review: "让每次发布，都留下下一次能用的判断",
   settings: "设置与备份",
